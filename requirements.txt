@@ -1,0 +1,19 @@
+# Job Matrix — Python dependencies
+#
+# Only used by the optional job scraper subprocess (server/job_scraper.py).
+# The rest of the app runs on Node and does not need a Python environment.
+#
+# Setup:
+#   python3 -m venv venv
+#   source venv/bin/activate          # macOS/Linux
+#   # or: venv\Scripts\activate       # Windows PowerShell
+#   pip install -r requirements.txt
+#
+# Then click "Run Broad Search" in the UI to use it.
+
+python-jobspy>=1.1.80
+
+# NotebookLM Studio outputs (audio overviews, infographics, etc.)
+# Unofficial wrapper — no public NotebookLM API. After installing, run
+# `notebooklm login` once to save session cookies.
+notebooklm-py>=0.4.0

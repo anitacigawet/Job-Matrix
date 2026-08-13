@@ -1,0 +1,6 @@
+# Runtime artifacts from a catalog-builder run.
+# These get regenerated whenever the orchestrator is re-run.
+staging/
+unsupported/
+final-catalog.yaml
+final-catalog.summary.md

@@ -1,0 +1,117 @@
+# Categories for the catalog-builder sweep.
+#
+# Each category becomes one sub-agent's work unit. The orchestrator
+# dispatches one Sonnet sub-agent per category in parallel; each agent
+# researches its own list and writes its own staging file
+# (`staging/{id}.yaml`). No two agents touch the same file.
+#
+# `examples` are seed companies the agent starts with. The agent is
+# expected to expand the list to ~15-25 companies per category using
+# WebSearch — these are just primers so it knows the shape of the
+# category. Skew toward well-known companies that users would actually
+# recognise and want to track.
+
+categories:
+  - id: ai-labs
+    label: "AI / ML labs and platforms"
+    examples: ["Anthropic", "OpenAI", "Cohere", "Mistral AI", "Hugging Face", "Inflection AI", "Character.AI", "Adept", "Perplexity"]
+
+  - id: devtools-infra
+    label: "Developer tools — infrastructure and observability"
+    examples: ["Cloudflare", "Vercel", "Netlify", "Datadog", "Sentry", "GitHub", "GitLab", "Fly.io", "Render"]
+
+  - id: devtools-saas
+    label: "Developer / productivity SaaS"
+    examples: ["Notion", "Linear", "Figma", "Slack", "Atlassian", "Loom", "1Password", "Postman"]
+
+  - id: fintech-payments
+    label: "Fintech — payments and banking infrastructure"
+    examples: ["Stripe", "Plaid", "Mercury", "Modern Treasury", "Block", "Adyen", "Brex"]
+
+  - id: fintech-consumer
+    label: "Fintech — consumer-facing (neobanks, lending, BNPL)"
+    examples: ["Chime", "SoFi", "Affirm", "Ramp", "Robinhood", "Wealthfront", "Klarna"]
+
+  - id: crypto
+    label: "Crypto, blockchain, web3"
+    examples: ["Coinbase", "Kraken", "Circle", "Chainalysis", "Anchorage", "Ledger", "OpenSea"]
+
+  - id: hotels
+    label: "Hotels and hospitality"
+    examples: ["Hilton", "Marriott", "Hyatt", "IHG", "Accor", "Wyndham", "Choice Hotels", "Four Seasons"]
+
+  - id: restaurants-food
+    label: "Restaurants, food delivery, grocery"
+    examples: ["Chipotle", "Sweetgreen", "DoorDash", "Instacart", "Uber Eats", "Wegmans", "Whole Foods"]
+
+  - id: retail-bigbox
+    label: "Big-box retail and warehouse clubs"
+    examples: ["Target", "Best Buy", "Costco", "Walmart", "Home Depot", "Lowe's", "IKEA"]
+
+  - id: retail-fashion
+    label: "Fashion, apparel, and direct-to-consumer brands"
+    examples: ["Nike", "Lululemon", "Patagonia", "Allbirds", "Warby Parker", "Glossier", "Madewell"]
+
+  - id: healthcare-providers
+    label: "Healthcare providers, insurance, pharmacies"
+    examples: ["UnitedHealth", "CVS Health", "Walgreens", "Kaiser Permanente", "Cigna", "Humana", "Anthem"]
+
+  - id: healthcare-biotech
+    label: "Biotech and pharma"
+    examples: ["Moderna", "Pfizer", "Genentech", "Regeneron", "Vertex Pharmaceuticals", "BioMarin", "Recursion"]
+
+  - id: aerospace-defense
+    label: "Aerospace, defense, and space"
+    examples: ["SpaceX", "Boeing", "Lockheed Martin", "Northrop Grumman", "Anduril", "Relativity Space", "Rocket Lab"]
+
+  - id: automotive
+    label: "Automotive, EVs, autonomy"
+    examples: ["Tesla", "Rivian", "Lucid Motors", "Waymo", "Cruise", "GM", "Ford", "Aurora"]
+
+  - id: gaming
+    label: "Gaming — studios, publishers, platforms"
+    examples: ["Riot Games", "Epic Games", "Blizzard", "Valve", "Ubisoft", "Roblox", "Activision", "Niantic"]
+
+  - id: streaming-media
+    label: "Streaming, broadcast, music"
+    examples: ["Netflix", "Disney", "Spotify", "Paramount", "Warner Bros Discovery", "Comcast/NBCUniversal", "Hulu"]
+
+  - id: ecommerce
+    label: "E-commerce platforms and retailers"
+    examples: ["Amazon", "Shopify", "eBay", "Etsy", "Wayfair", "Faire", "BigCommerce"]
+
+  - id: logistics
+    label: "Logistics, shipping, last-mile"
+    examples: ["FedEx", "UPS", "DHL", "Maersk", "Flexport", "Convoy", "Project44"]
+
+  - id: energy-climate
+    label: "Energy, utilities, climate tech"
+    examples: ["NextEra Energy", "Tesla Energy", "Sunrun", "Watershed", "Climeworks", "Form Energy", "Commonwealth Fusion Systems"]
+
+  - id: telco
+    label: "Telco, ISPs, satellite"
+    examples: ["Verizon", "AT&T", "T-Mobile", "Comcast", "Charter", "Starlink"]
+
+  - id: hardware-semis
+    label: "Hardware, semiconductors, robotics"
+    examples: ["NVIDIA", "AMD", "Intel", "Apple", "Samsung", "Boston Dynamics", "Anduril", "Skydio"]
+
+  - id: security-cyber
+    label: "Cybersecurity"
+    examples: ["CrowdStrike", "Palo Alto Networks", "Okta", "1Password", "SentinelOne", "Wiz", "Snyk"]
+
+  - id: data-analytics
+    label: "Data platforms, analytics, ML infrastructure"
+    examples: ["Databricks", "Snowflake", "dbt Labs", "Confluent", "MongoDB", "Fivetran", "Airbyte"]
+
+  - id: education
+    label: "Edtech and online learning"
+    examples: ["Coursera", "Khan Academy", "Duolingo", "Udemy", "Chegg", "MasterClass", "Pearson"]
+
+  - id: hr-recruiting
+    label: "HR tech and recruiting platforms"
+    examples: ["Greenhouse", "Lever", "Ashby", "Workday", "Gusto", "Rippling", "Deel"]
+
+  - id: travel-transport
+    label: "Travel, transportation, mobility"
+    examples: ["Airbnb", "Booking.com", "Expedia", "Uber", "Lyft", "Delta", "United Airlines", "Southwest"]
