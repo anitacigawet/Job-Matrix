@@ -1,8 +1,11 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
+import { TRPCError } from "@trpc/server";
 import type { User } from "../../drizzle/schema";
 import { users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
-import { getDb, LOCAL_USER_ID } from "../db";
+import { getDb, getUserByOpenId, LOCAL_USER_ID, upsertUser } from "../db";
+import { ENV } from "./env";
+import { authorizeHostedUser } from "../services/control-plane";
 
 /**
  * Single-user, no-auth context.
@@ -14,6 +17,8 @@ export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
   user: User;
+  identityEmail?: string | null;
+  hosted?: boolean;
 };
 
 /**
@@ -32,10 +37,39 @@ export async function getLocalUser(userId = LOCAL_USER_ID): Promise<User> {
 }
 
 export async function createContext(opts: CreateExpressContextOptions): Promise<TrpcContext> {
+  if (ENV.hostedMode) {
+    const identityEmail = String(opts.req.headers["cf-access-authenticated-user-email"] ?? "").trim().toLowerCase();
+    if (!identityEmail || !identityEmail.includes("@")) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "A verified Job Matrix account is required." });
+    }
+    const access = await authorizeHostedUser(identityEmail);
+    if (!access.allowed) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: access.reason === "account-suspended"
+          ? "This Job Matrix account is suspended."
+          : "This account has not been approved for Job Matrix.",
+      });
+    }
+    const openId = `cloudflare-access:${identityEmail}`;
+    await upsertUser({
+      openId,
+      email: identityEmail,
+      name: access.displayName || identityEmail.split("@")[0],
+      loginMethod: "cloudflare-access",
+      role: "user",
+      lastSignedIn: new Date(),
+    });
+    const user = await getUserByOpenId(openId);
+    if (!user) throw new Error("The Job Matrix account could not be initialized.");
+    return { req: opts.req, res: opts.res, user, identityEmail, hosted: true };
+  }
   return {
     req: opts.req,
     res: opts.res,
     user: await getLocalUser(),
+    identityEmail: null,
+    hosted: false,
   };
 }
 
@@ -45,5 +79,7 @@ export async function createInternalContext(userId = LOCAL_USER_ID): Promise<Trp
     req: undefined as unknown as TrpcContext["req"],
     res: undefined as unknown as TrpcContext["res"],
     user: await getLocalUser(userId),
+    identityEmail: null,
+    hosted: false,
   };
 }

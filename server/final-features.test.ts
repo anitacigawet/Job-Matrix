@@ -47,11 +47,11 @@ describe("stabilized runtime contracts", () => {
     expect(LOOPBACK_HOST).toBe("127.0.0.1");
   });
 
-  it("preserves every supported ATS source namespace", () => {
-    expect(normalizeStoredJobSource("gh:anthropic")).toBe("gh:anthropic");
-    expect(normalizeStoredJobSource("lever:netlify")).toBe("lever:netlify");
-    expect(normalizeStoredJobSource("ashby:posthog")).toBe("ashby:posthog");
-    expect(normalizeStoredJobSource("wd:target")).toBe("wd:target");
+  it("retires experimental ATS source namespaces", () => {
+    expect(normalizeStoredJobSource("gh:anthropic")).toBe("indeed");
+    expect(normalizeStoredJobSource("lever:netlify")).toBe("indeed");
+    expect(normalizeStoredJobSource("ashby:posthog")).toBe("indeed");
+    expect(normalizeStoredJobSource("wd:target")).toBe("indeed");
     expect(normalizeStoredJobSource("unknown-source")).toBe("indeed");
   });
 

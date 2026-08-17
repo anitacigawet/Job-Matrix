@@ -191,9 +191,9 @@ function AppShell() {
             }}
           >
             <span className="mono">
-              Job Matrix · local-first · no telemetry · single user
+              Job Matrix · source-available · bring your own AI
             </span>
-            <span className="mono">v0.2.0-beta · SQLite</span>
+            <span className="mono">v0.2.0-beta · you approve every submission</span>
           </div>
         </footer>
       </div>

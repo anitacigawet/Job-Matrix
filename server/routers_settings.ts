@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { router, protectedProcedure, publicProcedure } from "./_core/trpc";
+import { router, protectedProcedure } from "./_core/trpc";
 import { getDb } from "./db";
 import { userSettings } from "../drizzle/schema";
 import { notifyOwner } from "./_core/notification";
@@ -11,9 +11,12 @@ import {
   resolveProviderModel,
   writeSettings,
   readSettings,
+  saveUserSettings,
+  removeUserProviderKey,
   type AppSettings,
 } from "./_core/settings";
 import { PROVIDER_ORDER, ENV, type ProviderId } from "./_core/env";
+import { hostedWorkCoordinator } from "./services/hosted-work-coordinator";
 
 const providerSchema = z.enum(PROVIDER_ORDER as [ProviderId, ...ProviderId[]]);
 
@@ -58,6 +61,7 @@ interface DataSourceDescriptor {
 }
 
 function getDataSourcesForApi(): { sources: DataSourceDescriptor[] } {
+  if (ENV.hostedMode) return { sources: [] };
   const settings = readSettings();
   const ds = settings.dataSources ?? {};
 
@@ -222,27 +226,28 @@ export const settingsRouter = router({
    * Read LLM provider configuration: active provider, per-provider key/model
    * status, and rate limit. Keys are never returned in full.
    */
-  getLlm: publicProcedure.query(() => getSettingsForApi()),
+  getLlm: protectedProcedure.query(() => getSettingsForApi()),
 
   /**
    * Save LLM provider configuration. Any subset of fields may be supplied;
    * the rest are preserved.
    */
-  saveLlm: publicProcedure
+  saveLlm: protectedProcedure
     .input(
       z.object({
         activeProvider: providerSchema.optional(),
-        geminiKey: z.string().trim().min(1).optional(),
-        geminiModel: z.string().trim().min(1).optional(),
-        openaiKey: z.string().trim().min(1).optional(),
-        openaiModel: z.string().trim().min(1).optional(),
-        deepseekKey: z.string().trim().min(1).optional(),
-        deepseekModel: z.string().trim().min(1).optional(),
-        rateLimitRps: z.number().min(0).optional(),
+        geminiKey: z.string().trim().min(1).max(20_000).optional(),
+        geminiModel: z.string().trim().min(1).max(200).optional(),
+        openaiKey: z.string().trim().min(1).max(20_000).optional(),
+        openaiModel: z.string().trim().min(1).max(200).optional(),
+        deepseekKey: z.string().trim().min(1).max(20_000).optional(),
+        deepseekModel: z.string().trim().min(1).max(200).optional(),
+        rateLimitRps: z.number().min(0).max(20).optional(),
       })
     )
-    .mutation(({ input }) => {
-      writeSettings(input as Partial<AppSettings>);
+    .mutation(async ({ ctx, input }) => {
+      if (ENV.hostedMode) await saveUserSettings(ctx.user.id, input as Partial<AppSettings>);
+      else writeSettings(input as Partial<AppSettings>);
       return getSettingsForApi();
     }),
 
@@ -250,10 +255,11 @@ export const settingsRouter = router({
    * Remove the saved API key for a specific provider. Env vars (if set)
    * still take effect for that provider.
    */
-  clearProviderKey: publicProcedure
+  clearProviderKey: protectedProcedure
     .input(z.object({ provider: providerSchema }))
-    .mutation(({ input }) => {
-      clearProviderKey(input.provider);
+    .mutation(async ({ ctx, input }) => {
+      if (ENV.hostedMode) await removeUserProviderKey(ctx.user.id, input.provider);
+      else clearProviderKey(input.provider);
       return getSettingsForApi();
     }),
 
@@ -345,6 +351,7 @@ export const settingsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (ENV.hostedMode) throw new Error("Automatic searches are disabled in the hosted edition. Run searches manually when you need them.");
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
@@ -396,15 +403,18 @@ export const settingsRouter = router({
     .input(
       z.object({
         provider: z.enum(["gemini", "openai", "deepseek"]),
-        apiKey: z.string(),
-        model: z.string(),
+        apiKey: z.string().min(1).max(20_000),
+        model: z.string().min(1).max(200),
       })
     )
-    .mutation(async ({ input }) => {
-      const { testProviderConnection } = await import(
-        "./services/provider-tester"
-      );
-      return testProviderConnection(input.provider, input.apiKey, input.model);
+    .mutation(async ({ ctx, input }) => {
+      const operation = async () => {
+        const { testProviderConnection } = await import(
+          "./services/provider-tester"
+        );
+        return testProviderConnection(input.provider, input.apiKey, input.model);
+      };
+      return ctx.hosted ? hostedWorkCoordinator.runAi(ctx.user.id, operation) : operation();
     }),
 
   /**
@@ -417,39 +427,45 @@ export const settingsRouter = router({
    */
   testSavedProvider: protectedProcedure
     .input(z.object({ provider: providerSchema }))
-    .mutation(async ({ input }) => {
-      const key = resolveProviderKey(input.provider);
-      if (!key) {
-        return {
-          ok: false,
-          message: `No API key saved for ${input.provider}. Enter one in the form below and click Save first.`,
-          latencyMs: 0,
-        };
-      }
-      const model = resolveProviderModel(input.provider);
-      const { testProviderConnection } = await import(
-        "./services/provider-tester"
-      );
-      return testProviderConnection(input.provider, key, model);
+    .mutation(async ({ ctx, input }) => {
+      const operation = async () => {
+        const key = resolveProviderKey(input.provider);
+        if (!key) {
+          return {
+            ok: false,
+            message: `No API key saved for ${input.provider}. Enter one in the form below and click Save first.`,
+            latencyMs: 0,
+          };
+        }
+        const model = resolveProviderModel(input.provider);
+        const { testProviderConnection } = await import(
+          "./services/provider-tester"
+        );
+        return testProviderConnection(input.provider, key, model);
+      };
+      return ctx.hosted ? hostedWorkCoordinator.runAi(ctx.user.id, operation) : operation();
     }),
 
   // ── Tier-1 data sources (Phase 13 — D-019) ────────────────────────────
   /** Snapshot of every Tier-1 source: configured?, masked credentials, source (env|settings|none). */
-  getDataSources: publicProcedure.query(() => getDataSourcesForApi()),
+  getDataSources: protectedProcedure.query(() => getDataSourcesForApi()),
 
   /**
    * Save credentials for one Tier-1 source. `fields` is a per-source bag —
    * the server stores whichever keys the source descriptor declared. Unknown
    * keys are ignored.
    */
-  saveDataSource: publicProcedure
+  saveDataSource: protectedProcedure
     .input(
       z.object({
         source: dataSourceSchema,
-        fields: z.record(z.string(), z.string().trim().min(1)),
+        fields: z.record(z.string().max(80), z.string().trim().min(1).max(20_000)),
       })
     )
-    .mutation(({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      if (ENV.hostedMode) {
+        throw new Error("Additional data-source credentials are not used by the hosted service.");
+      }
       const current = readSettings();
       current.dataSources = current.dataSources ?? {};
       if (input.source === "adzuna") {
@@ -473,14 +489,18 @@ export const settingsRouter = router({
         if (input.fields.apiKey)
           current.dataSources.themuse.apiKey = input.fields.apiKey;
       }
-      writeSettings(current);
+      if (ENV.hostedMode) await saveUserSettings(ctx.user.id, { dataSources: current.dataSources });
+      else writeSettings(current);
       return getDataSourcesForApi();
     }),
 
   /** Remove saved credentials for one Tier-1 source. Env vars (if set) still take effect. */
-  clearDataSource: publicProcedure
+  clearDataSource: protectedProcedure
     .input(z.object({ source: dataSourceSchema }))
-    .mutation(({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      if (ENV.hostedMode) {
+        throw new Error("Additional data-source credentials are not used by the hosted service.");
+      }
       const current = readSettings();
       current.dataSources = current.dataSources ?? {};
       if (input.source === "adzuna") {
@@ -495,7 +515,8 @@ export const settingsRouter = router({
       } else if (input.source === "themuse") {
         delete current.dataSources.themuse;
       }
-      writeSettings(current);
+      if (ENV.hostedMode) await saveUserSettings(ctx.user.id, { dataSources: current.dataSources });
+      else writeSettings(current);
       return getDataSourcesForApi();
     }),
 
@@ -509,10 +530,13 @@ export const settingsRouter = router({
     .input(
       z.object({
         source: dataSourceSchema,
-        fields: z.record(z.string(), z.string()).optional(),
+        fields: z.record(z.string().max(80), z.string().max(20_000)).optional(),
       })
     )
     .mutation(async ({ input }) => {
+      if (ENV.hostedMode) {
+        throw new Error("Connection tests for additional sources are not available on the hosted service.");
+      }
       const { testDataSourceConnection } = await import(
         "./services/data-source-tester"
       );
@@ -603,6 +627,9 @@ export const settingsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (ctx.hosted && input.enabledPlatforms.some(platform => platform !== "indeed" && platform !== "linkedin")) {
+        throw new Error("The hosted service currently supports Indeed and LinkedIn searches only.");
+      }
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
@@ -632,7 +659,7 @@ export const settingsRouter = router({
     // Defaults updated in Phase 13 (D-019): drop Glassdoor (D-014 "not
     // operable"), add Adzuna (Tier 1). Adzuna only runs if credentials
     // are configured — Settings → Data Sources.
-    const DEFAULT_ENABLED = ["indeed", "linkedin", "adzuna"];
+    const DEFAULT_ENABLED = ENV.hostedMode ? ["indeed", "linkedin"] : ["indeed", "linkedin", "adzuna"];
     if (!db) return DEFAULT_ENABLED;
 
     const [settings] = await db
@@ -645,7 +672,9 @@ export const settingsRouter = router({
       return DEFAULT_ENABLED;
     }
 
-    return settings.enabledPlatforms;
+    return ENV.hostedMode
+      ? settings.enabledPlatforms.filter(platform => platform === "indeed" || platform === "linkedin")
+      : settings.enabledPlatforms;
   }),
 
   /**

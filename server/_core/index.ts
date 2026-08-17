@@ -1,7 +1,6 @@
 import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
-import net from "net";
 import path from "path";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
@@ -30,32 +29,18 @@ function escapeHtml(value: string): string {
   );
 }
 
-function isPortAvailable(port: number): Promise<boolean> {
-  return new Promise(resolve => {
-    const server = net.createServer();
-    server.listen(port, LOOPBACK_HOST, () => {
-      server.close(() => resolve(true));
-    });
-    server.on("error", () => resolve(false));
-  });
-}
-
-async function findAvailablePort(startPort: number = 3000): Promise<number> {
-  for (let port = startPort; port < startPort + 20; port++) {
-    if (await isPortAvailable(port)) return port;
-  }
-  throw new Error(`No available port found starting from ${startPort}`);
-}
-
 logEnvironmentBanner();
 
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  const requestBodyLimit = ENV.hostedMode ? "1mb" : "15mb";
+  app.use(express.json({ limit: requestBodyLimit }));
+  app.use(express.urlencoded({ limit: requestBodyLimit, extended: true }));
+  app.get("/healthz", (_req, res) => res.json({ ok: true, mode: ENV.hostedMode ? "hosted" : "local" }));
 
   app.get("/oauth/gmail/callback", async (req, res) => {
+    if (ENV.hostedMode) return res.status(404).end();
     const code = typeof req.query.code === "string" ? req.query.code : "";
     const state = typeof req.query.state === "string" ? req.query.state : "";
     const oauthError =
@@ -104,14 +89,16 @@ async function startServer() {
     path.dirname(ENV.databasePath),
     "application-assets"
   );
-  app.use(
-    "/application-assets",
-    express.static(applicationAssetsRoot, {
-      fallthrough: false,
-      maxAge: 0,
-      dotfiles: "deny",
-    })
-  );
+  if (!ENV.hostedMode) {
+    app.use(
+      "/application-assets",
+      express.static(applicationAssetsRoot, {
+        fallthrough: false,
+        maxAge: 0,
+        dotfiles: "deny",
+      })
+    );
+  }
 
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
@@ -119,23 +106,27 @@ async function startServer() {
     serveStatic(app);
   }
 
-  const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
-  if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
-  }
+  const port = ENV.port;
 
   server.listen(port, LOOPBACK_HOST, () => {
     console.log(
-      `Server running on http://${LOOPBACK_HOST}:${port}/ (local machine only)`
+      `Server running on http://${LOOPBACK_HOST}:${port}/ (${ENV.hostedMode ? "private tunnel origin" : "local machine only"})`
     );
-    startAutoScanScheduler();
-    startWeeklyDigestScheduler();
-    startInboxWatcher();
+    if (!ENV.hostedMode) {
+      startAutoScanScheduler();
+      startWeeklyDigestScheduler();
+      startInboxWatcher();
+    }
   });
 }
 
 async function main() {
+  if (ENV.hostedMode && ENV.controlServiceToken.length < 32) {
+    throw new Error("HOSTED_MODE requires a CONTROL_SERVICE_TOKEN of at least 32 characters.");
+  }
+  if (ENV.hostedMode && Buffer.from(ENV.settingsEncryptionKey, "base64").length !== 32) {
+    throw new Error("HOSTED_MODE requires a base64-encoded 32-byte SETTINGS_ENCRYPTION_KEY.");
+  }
   await initDb();
   await startServer();
 }

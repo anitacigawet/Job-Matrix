@@ -1,10 +1,15 @@
 import { z } from "zod";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { ENV } from "./_core/env";
 import { spawn } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 import { ensurePythonVenv, getCleanPythonEnv } from "./python_manager";
-import { registerScrapeProcess } from "./scrape-process-registry";
+import {
+  registerScrapeProcess,
+  terminateScrapeProcess,
+  type ScrapeProcessOwner,
+} from "./scrape-process-registry";
 import { PLATFORM_TIER, type PlatformId } from "../shared/platforms";
 import { getSource } from "./sources";
 
@@ -30,6 +35,45 @@ export const SUPPORTED_PLATFORMS = [
 ] as const;
 export type SupportedPlatform = typeof SUPPORTED_PLATFORMS[number];
 const JOB_SCRAPER_TIMEOUT_MS = 180000;
+const MAX_SCRAPER_STDOUT_BYTES = 4 * 1024 * 1024;
+const MAX_SCRAPER_STDERR_BYTES = 512 * 1024;
+const MAX_SCRAPER_JOBS = 75;
+
+function boundedExternalText(value: unknown, max: number, fallback = ""): string {
+  const text = typeof value === "string" ? value : fallback;
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(0, max - 14))}\n[truncated]`;
+}
+
+function validateScraperResult(value: unknown): JobSearchResult {
+  if (!value || typeof value !== "object") throw new Error("Scraper returned an invalid object.");
+  const result = value as Partial<JobSearchResult>;
+  if (!Array.isArray(result.jobs)) throw new Error("Scraper returned an invalid jobs list.");
+  const jobs = result.jobs.slice(0, MAX_SCRAPER_JOBS).map(job => ({
+    ...job,
+    id: boundedExternalText(job.id, 500),
+    title: boundedExternalText(job.title, 300, "Untitled role"),
+    company: boundedExternalText(job.company, 300, "Unknown company"),
+    location: job.location == null ? null : boundedExternalText(job.location, 500),
+    city: job.city == null ? null : boundedExternalText(job.city, 160),
+    state: job.state == null ? null : boundedExternalText(job.state, 80),
+    salary_interval: job.salary_interval == null ? null : boundedExternalText(job.salary_interval, 80),
+    job_type: job.job_type == null ? null : boundedExternalText(job.job_type, 120),
+    description: job.description == null ? null : boundedExternalText(job.description, 20_000),
+    job_url: boundedExternalText(job.job_url, 2_048),
+    date_posted: job.date_posted == null ? null : boundedExternalText(job.date_posted, 80),
+    site: boundedExternalText(job.site, 80),
+  }));
+  return {
+    success: result.success === true,
+    jobs,
+    count: jobs.length,
+    platformBreakdown: result.platformBreakdown && typeof result.platformBreakdown === "object"
+      ? result.platformBreakdown
+      : {},
+    error: typeof result.error === "string" ? boundedExternalText(result.error, 2_000) : undefined,
+  };
+}
 
 /** Default platforms if none specified. Mixes Tier-1 no-auth + green Tier-2. */
 export const DEFAULT_PLATFORMS: SupportedPlatform[] = ["indeed", "linkedin", "adzuna", "remotive", "remoteok", "themuse"];
@@ -72,7 +116,8 @@ export async function searchJobs(
   radiusMiles: number,
   resultsWanted: number = 50,
   hoursOld: number = 336, // Default: 14 days
-  platforms: SupportedPlatform[] = DEFAULT_PLATFORMS
+  platforms: SupportedPlatform[] = DEFAULT_PLATFORMS,
+  processOwner?: ScrapeProcessOwner,
 ): Promise<JobSearchResult> {
   const tier1: SupportedPlatform[] = [];
   const tier2: SupportedPlatform[] = [];
@@ -116,7 +161,7 @@ export async function searchJobs(
 
   const attempts: Array<Promise<JobSearchResult>> = [...tier1Calls];
   if (tier2.length > 0) {
-    attempts.push(scrapeViaJobSpy(searchTerm, location, radiusMiles, resultsWanted, hoursOld, tier2));
+    attempts.push(scrapeViaJobSpy(searchTerm, location, radiusMiles, resultsWanted, hoursOld, tier2, processOwner));
   }
 
   if (attempts.length === 0) {
@@ -225,7 +270,8 @@ function scrapeViaJobSpy(
   radiusMiles: number,
   resultsWanted: number,
   hoursOld: number,
-  platforms: SupportedPlatform[]
+  platforms: SupportedPlatform[],
+  processOwner?: ScrapeProcessOwner,
 ): Promise<JobSearchResult> {
   return new Promise(async (resolve) => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -263,10 +309,10 @@ function scrapeViaJobSpy(
 
     const cleanEnv = getCleanPythonEnv();
     const pythonProcess = spawn(venvPython, [pythonScript, ...args], { env: cleanEnv });
-    registerScrapeProcess(pythonProcess);
+    registerScrapeProcess(pythonProcess, processOwner);
     timeoutId = setTimeout(() => {
       console.error(`[Job Scraper] Timeout after ${JOB_SCRAPER_TIMEOUT_MS}ms for "${searchTerm}" in ${location}`);
-      pythonProcess.kill();
+      terminateScrapeProcess(pythonProcess);
       finish({
         success: false,
         jobs: [],
@@ -278,12 +324,38 @@ function scrapeViaJobSpy(
 
     let stdout = "";
     let stderr = "";
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
 
     pythonProcess.stdout.on("data", (data) => {
+      stdoutBytes += Buffer.byteLength(data);
+      if (stdoutBytes > MAX_SCRAPER_STDOUT_BYTES) {
+        terminateScrapeProcess(pythonProcess);
+        finish({
+          success: false,
+          jobs: [],
+          count: 0,
+          platformBreakdown: {},
+          error: "Job source returned too much data.",
+        });
+        return;
+      }
       stdout += data.toString();
     });
 
     pythonProcess.stderr.on("data", (data) => {
+      stderrBytes += Buffer.byteLength(data);
+      if (stderrBytes > MAX_SCRAPER_STDERR_BYTES) {
+        terminateScrapeProcess(pythonProcess);
+        finish({
+          success: false,
+          jobs: [],
+          count: 0,
+          platformBreakdown: {},
+          error: "Job scraper produced too much diagnostic output.",
+        });
+        return;
+      }
       stderr += data.toString();
     });
 
@@ -301,7 +373,7 @@ function scrapeViaJobSpy(
       }
 
       try {
-        const result = JSON.parse(stdout);
+        const result = validateScraperResult(JSON.parse(stdout));
         finish(result);
       } catch (error) {
         console.error("[Job Scraper] Failed to parse JSON:", error);
@@ -347,12 +419,12 @@ export const indeedRouter = router({
   savePreferences: protectedProcedure
     .input(
       z.object({
-        targetTitles: z.string(), // Comma-separated job titles
-        location: z.string(),
-        radiusMiles: z.number().default(50),
+        targetTitles: z.string().trim().max(1_500), // Comma-separated job titles
+        location: z.string().trim().max(240),
+        radiusMiles: z.number().min(1).max(500).default(50),
         remoteOnly: z.boolean().default(false),
         monitoringEnabled: z.boolean().default(true),
-        scanIntervalMinutes: z.number().default(30),
+        scanIntervalMinutes: z.number().min(5).max(10_080).default(30),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -380,6 +452,9 @@ export const indeedRouter = router({
 
   // Manual job search - scan Indeed for jobs matching preferences
   scanJobs: protectedProcedure.mutation(async ({ ctx }) => {
+    if (ENV.hostedMode) {
+      throw new Error("Use Global Search in the hosted edition so the daily search allowance can be enforced.");
+    }
     const prefs = await getJobPreferences(ctx.user.id);
 
     if (!prefs) {

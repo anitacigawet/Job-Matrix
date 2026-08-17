@@ -127,7 +127,7 @@ export function WorkflowRail(props: WorkflowRailProps) {
                 ) : null}
               </>
             ) : (
-              "Enabled sources and watched companies against your saved profile."
+              "Enabled job sources against your saved profile."
             )
           }
           cta={

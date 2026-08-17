@@ -12,6 +12,7 @@ import path from "node:path";
 import { eq, and, gte, desc, lt, sql } from "drizzle-orm";
 import { drizzle as drizzleProxy } from "drizzle-orm/sqlite-proxy";
 import initSqlJs, { type Database as SqlJsDatabase } from "sql.js";
+import { DatabaseSync as NativeDatabaseSync } from "node:sqlite";
 import {
   InsertUser,
   users,
@@ -47,6 +48,7 @@ import { ENV } from "./_core/env";
 export const LOCAL_USER_ID = 1;
 
 let _sqliteDb: SqlJsDatabase | null = null;
+let _nativeDb: NativeDatabaseSync | null = null;
 let _drizzle: ReturnType<typeof drizzleProxy<typeof schema>> | null = null;
 
 function ensureDataDir(): void {
@@ -171,10 +173,94 @@ function cleanupOrphanedJobs(db: SqlJsDatabase): void {
   }
 }
 
+function migrationFiles(): string[] {
+  const migrationsDir = path.resolve(process.cwd(), "drizzle", "migrations");
+  if (!fs.existsSync(migrationsDir)) return [];
+  return fs.readdirSync(migrationsDir).filter(file => file.endsWith(".sql")).sort();
+}
+
+function applyNativeMigrations(db: NativeDatabaseSync): void {
+  db.exec(`CREATE TABLE IF NOT EXISTS __drizzle_migrations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hash TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL
+  )`);
+  const applied = new Set(
+    db.prepare("SELECT hash FROM __drizzle_migrations").all().map(row => String(row.hash)),
+  );
+  const migrationsDir = path.resolve(process.cwd(), "drizzle", "migrations");
+  for (const file of migrationFiles()) {
+    if (applied.has(file)) continue;
+    const statements = fs.readFileSync(path.join(migrationsDir, file), "utf8")
+      .split("--> statement-breakpoint")
+      .map(statement => statement.trim())
+      .filter(Boolean);
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      for (const statement of statements) db.exec(statement);
+      db.prepare("INSERT INTO __drizzle_migrations(hash, created_at) VALUES (?, ?)")
+        .run(file, Date.now());
+      db.exec("COMMIT");
+      console.log(`[Database] Applied migration: ${file}`);
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+}
+
+function cleanupNativeOrphanedJobs(db: NativeDatabaseSync): void {
+  try {
+    const result = db.prepare("SELECT COUNT(*) AS count FROM job_scan_history WHERE status = 'running'").get();
+    const count = Number(result?.count ?? 0);
+    if (count === 0) return;
+    db.prepare(`UPDATE job_scan_history
+      SET status = 'failed', error_message = ?, completed_at = unixepoch()
+      WHERE status = 'running'`)
+      .run("Orphaned scan — server restarted while in-flight");
+    console.log(`[Database] Cleaned up ${count} orphaned job scan row(s)`);
+  } catch (error) {
+    console.warn("[Database] Could not clean orphaned hosted scans:", error);
+  }
+}
+
+function createNativeDrizzle(db: NativeDatabaseSync) {
+  return drizzleProxy(
+    async (queryStr, params, method) => {
+      const statement = db.prepare(queryStr);
+      const values = (params ?? []) as any[];
+      if (method === "run") {
+        statement.run(...values);
+        return { rows: [] };
+      }
+      statement.setReturnArrays(true);
+      if (method === "get") {
+        return { rows: (statement.get(...values) as unknown[] | undefined) ?? [] };
+      }
+      return { rows: statement.all(...values) as unknown as unknown[][] };
+    },
+    { schema, casing: "snake_case" },
+  );
+}
+
 export async function initDb(): Promise<void> {
   if (_drizzle) return;
 
   ensureDataDir();
+  if (ENV.hostedMode) {
+    const nativeDb = new NativeDatabaseSync(ENV.databasePath);
+    nativeDb.exec("PRAGMA foreign_keys = ON");
+    nativeDb.exec("PRAGMA journal_mode = WAL");
+    nativeDb.exec("PRAGMA synchronous = NORMAL");
+    nativeDb.exec("PRAGMA busy_timeout = 5000");
+    applyNativeMigrations(nativeDb);
+    cleanupNativeOrphanedJobs(nativeDb);
+    _nativeDb = nativeDb;
+    _drizzle = createNativeDrizzle(nativeDb);
+    console.log(`[Database] Native hosted SQLite opened at ${ENV.databasePath}`);
+    return;
+  }
+
   const SQL = await initSqlJs();
   const buffer = fs.existsSync(ENV.databasePath)
     ? fs.readFileSync(ENV.databasePath)
@@ -583,6 +669,9 @@ export async function bulkSaveTrackedJobs(jobs: InsertTrackedJob[]) {
   const known = new Set(
     existingRows.map(row => `${row.platform}\u0000${row.jobId}`)
   );
+  let remainingHostedCapacity = ENV.hostedMode
+    ? Math.max(0, 5_000 - existingRows.length)
+    : Number.MAX_SAFE_INTEGER;
 
   for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
     const batch = jobs.slice(i, i + BATCH_SIZE);
@@ -594,7 +683,12 @@ export async function bulkSaveTrackedJobs(jobs: InsertTrackedJob[]) {
         continue;
       }
       known.add(key);
+      if (remainingHostedCapacity <= 0) {
+        skipped++;
+        continue;
+      }
       pending.push(job);
+      remainingHostedCapacity--;
     }
     if (pending.length > 0) {
       await db.insert(trackedJobs).values(pending);

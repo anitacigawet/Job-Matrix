@@ -5,6 +5,7 @@ import { users, userJobTitles, inviteCodes } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { invokeLLM } from "./_core/llm";
 import { TRPCError } from "@trpc/server";
+import { hostedWorkCoordinator } from "./services/hosted-work-coordinator";
 
 type ParsedResumeSuggestions = {
   jobTypeTarget: string | null;
@@ -40,6 +41,13 @@ async function retryLLM<T>(
   throw lastError || new Error("LLM call failed after retries");
 }
 
+function withHostedOnboardingAi<T>(
+  ctx: { hosted?: boolean; user: { id: number } },
+  operation: () => Promise<T>,
+): Promise<T> {
+  return ctx.hosted ? hostedWorkCoordinator.runAi(ctx.user.id, operation) : operation();
+}
+
 export const onboardingRouter = router({
   uploadResumeAndParse: userProcedure
     .input(z.object({
@@ -48,7 +56,7 @@ export const onboardingRouter = router({
       fileSize: z.number().positive().max(10 * 1024 * 1024).optional(),
       resumeText: z.string().max(120_000).optional(),
     }))
-    .mutation(async ({ input, ctx }) => {
+    .mutation(({ input, ctx }) => withHostedOnboardingAi(ctx, async () => {
       console.log("[Onboarding] Resume auto-fill requested", {
         userId: ctx.user.id,
         fileName: input.fileName,
@@ -110,6 +118,7 @@ export const onboardingRouter = router({
               .filter((x): x is string => typeof x === "string")
               .map((t) => t.trim())
               .filter(Boolean)
+              .map((t) => t.slice(0, 160))
               .slice(0, 15)
           : [];
 
@@ -152,14 +161,14 @@ export const onboardingRouter = router({
             "Auto-fill did not complete (AI busy or error). Continue manually—onboarding is not blocked.",
         };
       }
-    }),
+    })),
 
   // Generate 15 job title variations from user input
   generateJobTitles: userProcedure
     .input(z.object({
-      jobType: z.string().min(1).max(255),
+      jobType: z.string().trim().min(1).max(160),
     }))
-    .mutation(async ({ input, ctx }) => {
+    .mutation(({ input, ctx }) => withHostedOnboardingAi(ctx, async () => {
       const { jobType } = input;
       
       console.log(`[Onboarding] Generating job titles for: ${jobType}`);
@@ -199,7 +208,11 @@ export const onboardingRouter = router({
         }
 
         // Take up to 15 titles
-        const finalTitles = titles.slice(0, 15);
+        const finalTitles = titles
+          .filter((title): title is string => typeof title === "string")
+          .map(title => title.trim().slice(0, 160))
+          .filter(Boolean)
+          .slice(0, 15);
         console.log(`[Onboarding] Successfully generated ${finalTitles.length} job titles`);
         return { titles: finalTitles };
 
@@ -210,7 +223,7 @@ export const onboardingRouter = router({
           message: `Failed to generate job titles: ${error instanceof Error ? error.message : "Unknown error"}`,
         });
       }
-    }),
+    })),
 
   // Save user profile from onboarding questions
   saveProfile: userProcedure
@@ -252,7 +265,7 @@ export const onboardingRouter = router({
         // If skills were provided, parse them with AI
         if (input.skillsRaw && input.skillsRaw.trim().length > 0) {
           try {
-            const skillsResponse = await retryLLM(async () => {
+            const skillsResponse = await withHostedOnboardingAi(ctx, () => retryLLM(async () => {
               return await invokeLLM({
                 messages: [
                   {
@@ -266,7 +279,7 @@ export const onboardingRouter = router({
                 ],
                 response_format: { type: "json_object" }
               });
-            });
+            }));
 
             if (skillsResponse?.choices?.[0]?.message?.content) {
               const parsedSkills = JSON.parse(skillsResponse.choices[0].message.content as string);
@@ -322,7 +335,7 @@ export const onboardingRouter = router({
   saveJobTitles: userProcedure
     .input(z.object({
       titles: z.array(z.object({
-        title: z.string(),
+        title: z.string().trim().min(1).max(160),
         isActive: z.boolean(),
       })).min(1).max(15),
     }))
@@ -339,14 +352,16 @@ export const onboardingRouter = router({
         // Delete existing job titles for this user (in case of re-onboarding)
         await db.delete(userJobTitles).where(eq(userJobTitles.userId, userId));
 
-        // Insert all job titles
-        for (const { title, isActive } of titles) {
-          await db.insert(userJobTitles).values({
+        // Insert the bounded collection in one database mutation. The local
+        // sql.js adapter snapshots after mutations, so per-row inserts would
+        // multiply blocking whole-file writes.
+        await db.insert(userJobTitles).values(
+          titles.map(({ title, isActive }) => ({
             userId,
             jobTitle: title,
             isActive: isActive ? 1 : 0,
-          });
-        }
+          })),
+        );
 
         // Mark onboarding as complete
         await db.update(users)
@@ -409,7 +424,7 @@ export const onboardingRouter = router({
   // Validate invite code
   validateInviteCode: userProcedure
     .input(z.object({
-      code: z.string().min(1),
+      code: z.string().trim().min(1).max(100),
     }))
     .mutation(async ({ input }) => {
       const { code } = input;

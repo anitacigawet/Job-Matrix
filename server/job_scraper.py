@@ -22,6 +22,17 @@ PLATFORM_MAP = {
     "google": "google",
 }
 
+MAX_JOBS = 75
+MAX_OUTPUT_BYTES = 3 * 1024 * 1024
+
+def bounded_text(value, limit):
+    if value is None:
+        return None
+    text = str(value)
+    if len(text) <= limit:
+        return text
+    return text[:max(0, limit - 14)] + "\n[truncated]"
+
 def search_jobs(search_term, location, platforms=None, distance=50, results_wanted=20, hours_old=None):
     """
     Search for jobs across multiple platforms using JobSpy
@@ -82,7 +93,7 @@ def search_jobs(search_term, location, platforms=None, distance=50, results_want
         if jobs_df is not None and len(jobs_df) > 0:
             # Replace NaN with None for JSON serialization
             jobs_df = jobs_df.where(pd.notna(jobs_df), None)
-            jobs_list = jobs_df.to_dict('records')
+            jobs_list = jobs_df.to_dict('records')[:MAX_JOBS]
             
             # Transform to our schema
             transformed_jobs = []
@@ -111,20 +122,20 @@ def search_jobs(search_term, location, platforms=None, distance=50, results_want
                 platform_counts[platform] = platform_counts.get(platform, 0) + 1
                 
                 transformed_jobs.append({
-                    'id': clean_value(job.get('id')),
-                    'title': clean_value(job.get('title')),
-                    'company': clean_value(job.get('company')),
-                    'location': f"{job.get('city', '') or ''}, {job.get('state', '') or ''}".strip(', '),
-                    'city': clean_value(job.get('city')),
-                    'state': clean_value(job.get('state')),
-                    'job_type': clean_value(job.get('job_type')),
+                    'id': bounded_text(clean_value(job.get('id')), 500),
+                    'title': bounded_text(clean_value(job.get('title')), 300),
+                    'company': bounded_text(clean_value(job.get('company')), 300),
+                    'location': bounded_text(f"{job.get('city', '') or ''}, {job.get('state', '') or ''}".strip(', '), 500),
+                    'city': bounded_text(clean_value(job.get('city')), 160),
+                    'state': bounded_text(clean_value(job.get('state')), 80),
+                    'job_type': bounded_text(clean_value(job.get('job_type')), 120),
                     'salary_min': clean_value(job.get('min_amount')),
                     'salary_max': clean_value(job.get('max_amount')),
-                    'salary_interval': clean_value(job.get('interval')),
-                    'job_url': clean_value(job.get('job_url')),
-                    'description': clean_value(job.get('description')),
-                    'date_posted': str(date_posted) if date_posted else None,
-                    'site': platform,
+                    'salary_interval': bounded_text(clean_value(job.get('interval')), 80),
+                    'job_url': bounded_text(clean_value(job.get('job_url')), 2048),
+                    'description': bounded_text(clean_value(job.get('description')), 20000),
+                    'date_posted': bounded_text(str(date_posted), 80) if date_posted else None,
+                    'site': bounded_text(platform, 80),
                 })
             
             return {
@@ -173,7 +184,16 @@ def main():
     hours_old = int(sys.argv[6]) if len(sys.argv) > 6 else None
     
     result = search_jobs(search_term, location, platforms, distance, results_wanted, hours_old)
-    print(json.dumps(result, indent=2))
+    payload = json.dumps(result, separators=(',', ':'))
+    if len(payload.encode('utf-8')) > MAX_OUTPUT_BYTES:
+        payload = json.dumps({
+            'success': False,
+            'error': 'Job source returned too much data.',
+            'jobs': [],
+            'count': 0,
+            'platformBreakdown': {},
+        }, separators=(',', ':'))
+    print(payload)
 
 if __name__ == '__main__':
     main()

@@ -12,7 +12,18 @@ import { getScraperHealthSnapshot } from "./db";
  */
 export const scrapersRouter = router({
   /** Current health snapshot across all supported platforms. */
-  health: protectedProcedure.query(async () => {
-    return getScraperHealthSnapshot();
+  health: protectedProcedure.query(async ({ ctx }) => {
+    const snapshot = await getScraperHealthSnapshot();
+    if (ctx.hosted) {
+      return snapshot.map(row => ({
+        platform: row.platform,
+        lastSuccessAt: null,
+        lastAttemptAt: null,
+        lastError: null,
+        totalAttempts: 0,
+        totalFailures: 0,
+      }));
+    }
+    return snapshot;
   }),
 });

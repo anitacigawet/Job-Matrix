@@ -14,7 +14,6 @@ import { settingsRouter } from "./routers_settings";
 import { presetsRouter } from "./routers_presets";
 import { notesRouter } from "./routers_notes";
 import { scrapersRouter } from "./routers_scrapers";
-import { companiesRouter } from "./routers_companies";
 import { automationRouter } from "./routers_automation";
 
 export const appRouter = router({
@@ -53,7 +52,6 @@ export const appRouter = router({
   presets: presetsRouter,
   notes: notesRouter,
   scrapers: scrapersRouter,
-  companies: companiesRouter,
   automation: automationRouter,
 });
 

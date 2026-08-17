@@ -43,6 +43,5 @@ export const personalizedRouter = router({
   getLastAIAnalysis: statsRouter.getLastAIAnalysis,
   getPendingJobCounts: statsRouter.getPendingJobCounts,
   getSystemStats: statsRouter.getSystemStats,
-  runPersonalizedScan: statsRouter.runPersonalizedScan,
   getUserProfile: statsRouter.getUserProfile,
 });

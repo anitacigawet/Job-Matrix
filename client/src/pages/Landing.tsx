@@ -27,7 +27,7 @@ export default function Landing() {
           </div>
           <CardTitle className="text-4xl gradient-text">Escape the noise.</CardTitle>
           <CardDescription className="mx-auto max-w-2xl text-base leading-relaxed">
-            Job Matrix searches public job sources and company career pages, filters openings
+            Job Matrix searches public job sources, filters openings
             against what actually fits your life, and keeps the promising ones moving from
             discovery to application.
           </CardDescription>
@@ -38,7 +38,7 @@ export default function Landing() {
               <Search className="mb-3 h-5 w-5 text-cyan-400" />
               <h2 className="font-semibold">Search in one place</h2>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Scan public APIs, remote-job feeds, and the career pages of companies you choose.
+                Search selected job boards and public feeds without juggling the same query across tabs.
               </p>
             </div>
             <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
@@ -60,9 +60,8 @@ export default function Landing() {
           <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-background/40 p-4 text-sm text-muted-foreground">
             <Database className="mt-0.5 h-5 w-5 shrink-0 text-blue-400" />
             <p>
-              Your profile, saved jobs, and application history stay in a SQLite file on this
-              computer. Job Matrix has no hosted account or telemetry service. Searches and
-              optional AI features contact only the services you choose to use.
+              Your profile, saved jobs, and application history remain separated from every other
+              account. AI is optional and uses a provider key you choose to supply.
             </p>
           </div>
 

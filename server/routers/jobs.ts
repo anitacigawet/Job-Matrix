@@ -176,7 +176,7 @@ export const jobsRouter = router({
     .input(z.object({
       jobId: z.number(),
       status: z.enum(["applied", "interview", "offer", "accepted", "rejected", "ghosted"]),
-      notes: z.string().optional(),
+      notes: z.string().max(5_000).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();

@@ -17,6 +17,10 @@ import {
   userJobTitles,
 } from "../drizzle/schema";
 
+const MAX_PRESETS_PER_USER = 20;
+const presetJobTitles = z.array(z.string().trim().min(1).max(160)).min(1).max(15);
+const presetPlatforms = z.array(z.string().trim().min(1).max(40)).min(1).max(12);
+
 /**
  * Parse a preset's free-text location into (city, state).
  *
@@ -67,17 +71,21 @@ export const presetsRouter = router({
     .input(
       z.object({
         name: z.string().min(1).max(100),
-        jobTitles: z.array(z.string()).min(1),
-        location: z.string().min(1),
+        jobTitles: presetJobTitles,
+        location: z.string().trim().min(1).max(240),
         radiusMiles: z.number().min(1).max(500).default(50),
         remotePreference: z.enum(["remote_only", "hybrid", "on_site", "any"]).default("any"),
-        platforms: z.array(z.string()).min(1).default(["indeed"]),
+        platforms: presetPlatforms.default(["indeed"]),
         minSalary: z.number().nullable().optional(),
-        jobType: z.string().nullable().optional(),
+        jobType: z.string().trim().max(120).nullable().optional(),
         isDefault: z.boolean().default(false),
       })
     )
     .mutation(async ({ input, ctx }) => {
+      const existing = await getSearchPresets(ctx.user.id);
+      if (existing.length >= MAX_PRESETS_PER_USER) {
+        throw new Error(`Each account can keep up to ${MAX_PRESETS_PER_USER} search presets.`);
+      }
       const id = await createSearchPreset({
         userId: ctx.user.id,
         name: input.name,
@@ -99,13 +107,13 @@ export const presetsRouter = router({
       z.object({
         id: z.number(),
         name: z.string().min(1).max(100).optional(),
-        jobTitles: z.array(z.string()).min(1).optional(),
-        location: z.string().min(1).optional(),
+        jobTitles: presetJobTitles.optional(),
+        location: z.string().trim().min(1).max(240).optional(),
         radiusMiles: z.number().min(1).max(500).optional(),
         remotePreference: z.enum(["remote_only", "hybrid", "on_site", "any"]).optional(),
-        platforms: z.array(z.string()).min(1).optional(),
+        platforms: presetPlatforms.optional(),
         minSalary: z.number().nullable().optional(),
-        jobType: z.string().nullable().optional(),
+        jobType: z.string().trim().max(120).nullable().optional(),
         isDefault: z.boolean().optional(),
       })
     )

@@ -1,29 +1,20 @@
-/**
- * server/scrape-process-registry.ts
- *
- * Tracks live Python scrape subprocesses so the cancel-operation flow can
- * SIGTERM them directly instead of waiting for them to finish naturally.
- *
- * Job Matrix is single-user, so a flat set is fine — at most one scan
- * runs at a time per host, and that scan may have multiple subprocesses
- * in flight (one per platform). All of them belong to the same logical
- * "current scrape," so killing all-active on cancel is the right scope.
- *
- * Lifecycle:
- *   register(child) on spawn
- *   unregister(child) on close / error / kill
- *   killAll() from cancelOperation — sends SIGTERM, schedules SIGKILL fallback
- */
 import type { ChildProcess } from "node:child_process";
 
-const active = new Set<ChildProcess>();
+export type ScrapeProcessOwner = {
+  userId: number;
+  scanId: number;
+};
 
-export function registerScrapeProcess(child: ChildProcess): void {
-  active.add(child);
-  // Auto-unregister whenever the subprocess exits, regardless of cause.
-  const cleanup = () => {
-    active.delete(child);
-  };
+type TrackedProcess = {
+  child: ChildProcess;
+  owner?: ScrapeProcessOwner;
+};
+
+const active = new Map<ChildProcess, TrackedProcess>();
+
+export function registerScrapeProcess(child: ChildProcess, owner?: ScrapeProcessOwner): void {
+  active.set(child, { child, owner });
+  const cleanup = () => active.delete(child);
   child.once("close", cleanup);
   child.once("exit", cleanup);
   child.once("error", cleanup);
@@ -37,44 +28,47 @@ export function activeCount(): number {
   return active.size;
 }
 
-/**
- * Kill every currently-tracked scrape subprocess.
- * Sends SIGTERM first; falls back to SIGKILL after a grace window for any
- * stragglers that ignored the term signal (Python subprocesses sometimes
- * do, especially when wedged inside a C extension).
- */
-export function killAllScrapeProcesses(graceMs: number = 3000): { count: number } {
-  const count = active.size;
-  if (count === 0) return { count };
-
-  const stragglers: ChildProcess[] = [];
-  for (const child of Array.from(active)) {
-    try {
-      const killed = child.kill("SIGTERM");
-      if (!killed || child.exitCode === null) {
-        stragglers.push(child);
+/** Signal one child and force-kill it if it has not actually exited. */
+export function terminateScrapeProcess(child: ChildProcess, graceMs = 3000): boolean {
+  if (child.exitCode !== null || child.signalCode !== null) return false;
+  let signalled = false;
+  try {
+    signalled = child.kill("SIGTERM");
+  } catch (error) {
+    console.warn("[Scrape Registry] SIGTERM failed:", error);
+  }
+  const fallback = setTimeout(() => {
+    if (child.exitCode === null && child.signalCode === null) {
+      try {
+        child.kill("SIGKILL");
+      } catch (error) {
+        console.warn("[Scrape Registry] SIGKILL fallback failed:", error);
       }
-    } catch (err) {
-      console.warn("[Scrape Registry] SIGTERM failed:", err);
     }
-  }
+  }, graceMs);
+  fallback.unref?.();
+  return signalled;
+}
 
-  if (stragglers.length > 0) {
-    setTimeout(() => {
-      for (const child of stragglers) {
-        if (child.exitCode === null && !child.killed) {
-          try {
-            child.kill("SIGKILL");
-          } catch (err) {
-            console.warn("[Scrape Registry] SIGKILL fallback failed:", err);
-          }
-        }
-      }
-    }, graceMs);
-  }
+function terminateMatching(predicate: (entry: TrackedProcess) => boolean, graceMs = 3000): { count: number } {
+  const matches = Array.from(active.values()).filter(predicate);
+  for (const entry of matches) terminateScrapeProcess(entry.child, graceMs);
+  console.log(`[Scrape Registry] Sent SIGTERM to ${matches.length} scoped subprocess(es)`);
+  return { count: matches.length };
+}
 
-  console.log(
-    `[Scrape Registry] Sent SIGTERM to ${count} subprocess(es); ${stragglers.length} pending SIGKILL fallback`,
+/** Local single-user compatibility path. Hosted callers must use the scoped form. */
+export function killAllScrapeProcesses(graceMs = 3000): { count: number } {
+  return terminateMatching(() => true, graceMs);
+}
+
+export function killScrapeProcessesForScan(
+  userId: number,
+  scanId: number,
+  graceMs = 3000,
+): { count: number } {
+  return terminateMatching(
+    entry => entry.owner?.userId === userId && entry.owner.scanId === scanId,
+    graceMs,
   );
-  return { count };
 }

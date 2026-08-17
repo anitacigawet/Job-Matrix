@@ -36,6 +36,19 @@ export const users = sqliteTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+// Encrypted, tenant-specific provider and source credentials for hosted mode.
+export const userSecretSettings = sqliteTable("user_secret_settings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" })
+    .unique(),
+  ciphertext: text("ciphertext").notNull(),
+  iv: text("iv").notNull(),
+  authTag: text("auth_tag").notNull(),
+  updatedAt: ts("updated_at"),
+});
+
 // ── job_preferences ──────────────────────────────────────────────────
 export const jobPreferences = sqliteTable("job_preferences", {
   id: integer("id").primaryKey({ autoIncrement: true }),

@@ -1,29 +1,48 @@
 # Security Policy
 
-Job Matrix is **local-first and single-user**. Its local Express server binds to
-`127.0.0.1`, records are stored in a local SQLite file, and provider access uses
-your own API keys. There is no server we operate, shared database, hosted Job
-Matrix account, or telemetry collector. Searches and optional AI features still
-contact the third-party services you enable, as documented in the README.
+Job Matrix supports two deliberately separate environments:
 
-That said, responsible disclosure is always appreciated.
+- The hosted service uses invite-only accounts, Cloudflare Access identity,
+  tenant-scoped records, encrypted per-account provider keys, and centrally
+  enforced search allowances.
+- The source-available local build binds to `127.0.0.1` and keeps its data on
+  the person’s own computer.
+
+The hosted service runs on dedicated infrastructure for ScootSolute projects.
+It does not share a server, tunnel, credentials, or data with the Personal
+Dashboard or any unrelated private system.
+
+Searches contact the selected job sites, and optional AI features contact the
+provider whose key the account holder supplies. Job Matrix does not provide a
+shared AI key to hosted accounts.
 
 ## Reporting a vulnerability
 
-Please report security issues **privately** — do not open a public GitHub issue.
+Please report security issues privately rather than opening a public issue.
 
-- **Preferred:** use GitHub's [private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability) on this repository (the **Security** tab → **Report a vulnerability**).
+- Preferred: use GitHub private vulnerability reporting from this repository’s
+  **Security** tab.
 - Alternatively, contact the maintainer through their GitHub profile.
 
-Please include steps to reproduce and the affected version (`package.json`). You'll get an acknowledgement as soon as the report is reviewed.
+Please include the affected version, the environment (hosted or local), and
+clear reproduction steps. Reports are reviewed as soon as practical.
 
-## Scope
+## Useful reports
 
-Things genuinely worth reporting:
+Examples include:
 
-- A way for a malicious job listing or API response to execute code or script in the app (the app sanitizes job-description HTML via DOMPurify — a bypass would qualify).
-- A path-traversal or file-write issue in the local server or the Python subprocess handling.
-- Leakage of API keys or local data beyond the explicitly enabled provider
-  requests described in the README.
+- Access to another account’s jobs, résumé details, application history, or
+  provider settings.
+- A way to bypass account approval, daily search allowances, the whole-site
+  search ceiling, or the owner’s stop control.
+- A route that lets one account consume unbounded shared compute, storage,
+  subprocess, or outbound network capacity.
+- Disclosure or unintended continued use of a saved API key.
+- Script execution from a job listing or API response, including a DOMPurify
+  bypass.
+- Path traversal, arbitrary file access, command injection, or an origin that
+  can be reached without its intended Cloudflare Access policy.
 
-Out of scope: anything that requires an attacker to already have local access to the user's machine (the threat model assumes the single local user is trusted), and the documented behavior that the JobSpy scrapers contact third-party job sites on the user's behalf.
+For the local build, behavior that requires the person to already control their
+own machine is generally outside the threat model. The documented requests to
+job sites and user-selected AI providers are also expected behavior.

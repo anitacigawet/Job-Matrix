@@ -41,7 +41,6 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { useSubNav } from "@/components/SubNav";
 import { SearchPresetsContent } from "./SearchPresets";
-import { WatchedCompaniesPanel } from "@/components/WatchedCompaniesPanel";
 import { WorkStyleQuickFillDialog } from "@/components/WorkStyleQuickFill";
 import { toast } from "sonner";
 import { ApplicationProfilePanel } from "@/components/ApplicationProfilePanel";
@@ -1013,7 +1012,6 @@ export function JobPreferences() {
 
           {activeTab === "presets" && <SearchPresetsContent />}
 
-          {activeTab === "companies" && <WatchedCompaniesPanel />}
         </div>
       </div>
 

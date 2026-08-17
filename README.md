@@ -1,12 +1,12 @@
 # Job Matrix
 
-**A local job-search workspace that finds openings across public job sources and
-company career pages, filters them against what actually fits your life, and
-helps you carry promising roles from discovery through application.**
+**A job-search workspace that finds openings across selected public job
+sources, filters them against what actually fits your life, and helps you carry
+promising roles from discovery through application.**
 
 You tell Job Matrix what kind of work fits your circumstances. It searches,
 removes clear mismatches, ranks the remaining jobs, and keeps your applications
-organized on your own computer. When you want help, a browser assistant can
+organized in one place. When you want help, a browser assistant can
 work through the same interface you see while leaving final decisions with you.
 
 ![A populated Job Matrix dashboard showing its scan, filter, and scoring workflow beside ranked job matches](docs/screenshots/dashboard.png)
@@ -14,9 +14,10 @@ work through the same interface you see while leaving final decisions with you.
 _The dashboard turns a pile of listings into a visible workflow: search, filter,
 score, review, and apply._
 
-> **Beta:** Job Matrix is usable today, but it is still a self-hosted developer
-> release. Job sources and AI providers can change independently of the app, so
-> the interface reports source health instead of promising permanent coverage.
+> **Beta:** The repository remains runnable locally while the account-based
+> hosted edition is prepared. Job sources and AI providers can change
+> independently of the app, so the interface reports source health instead of
+> promising permanent coverage.
 
 ---
 
@@ -43,9 +44,8 @@ If any of that sounds familiar, keep reading.
 
 1. **You describe the work that fits.** Add target roles, locations, pay needs,
    education, experience, and any deal-breakers that matter to you.
-2. **You choose where to look.** Search public job APIs, remote-work feeds,
-   optional JobSpy-backed sources, and the public career pages of companies you
-   want to watch.
+2. **You choose where to look.** Search selected public job feeds and
+   JobSpy-backed sources.
 3. **Job Matrix gathers and deduplicates listings.** The same opening appearing
    on multiple sources is grouped instead of becoming more noise.
 4. **Rules remove clear mismatches.** Optional AI filtering can evaluate the
@@ -59,27 +59,26 @@ If any of that sounds familiar, keep reading.
    a packet from answers you chose to save. The assistant may navigate and fill,
    but you review the result and personally approve the final submission.
 8. **Optional response monitoring closes the loop.** A read-only Gmail
-   connection can recognize likely employer responses and Google Voice email
-   notifications; Slack alerts are optional.
+   connection in the local edition can recognize likely employer responses and
+   Google Voice email notifications; Slack alerts are optional.
 
 ![Job Matrix welcome screen explaining search, fit, human approval, and local data before setup](docs/screenshots/welcome.png)
 
 _The front door explains the bargain before asking for anything: Job Matrix does
-the repetitive work, your records stay local, and the consequential choices stay
-with you._
+the repetitive work, and the consequential choices stay with you._
 
 ---
 
 ## Why this is different from another job board
 
 Job Matrix does not own a marketplace of listings and has no incentive to keep
-you scrolling. It is a workspace you run for yourself.
+you scrolling. It is a workspace centered on your search rather than a job
+board's feed.
 
-- **Your working record stays on your machine.** There is no Job Matrix account,
-  hosted database, or telemetry collector.
-- **You choose the sources.** Six public job APIs/feeds are supported, alongside
-  public Greenhouse, Lever, Ashby, and Workday career boards and optional
-  best-effort JobSpy sources.
+- **Your working record stays separate.** Hosted accounts are tenant-isolated;
+  the local edition stores its record on the machine running it.
+- **You choose the sources.** Public feeds and optional best-effort JobSpy
+  sources are available without an experimental company-catalog layer.
 - **Your circumstances drive the filter.** Relevance means more than matching a
   title. Job Matrix can account for the constraints you decide to save.
 - **Assistance remains reviewable.** The browser assistant sees the same
@@ -151,12 +150,15 @@ available model your account supports.
 
 ### Job sources
 
-The source layer has three distinct shapes:
+The invite-only hosted edition begins with bounded Indeed and LinkedIn searches
+only. The broader source layer below remains available to the local edition;
+credentialed source tests and shared server keys are intentionally unavailable
+to hosted accounts.
+
+The source layer has two distinct shapes:
 
 - **Public APIs and feeds:** Adzuna, USAJobs, Jooble, The Muse, Remotive, and
   RemoteOK. Some work without signup; others require free or partner credentials.
-- **Company career boards:** public Greenhouse, Lever, Ashby, and Workday feeds
-  selected from the maintained company catalog.
 - **Best-effort scrapers:** optional JobSpy support for Indeed, LinkedIn,
   Glassdoor, ZipRecruiter, and Google Jobs. These are more fragile and may stop
   working when the underlying sites change or block automated requests.
@@ -168,12 +170,13 @@ telemetry** for what this installation has actually observed.
 
 ## Data and privacy
 
-The current repository build is local-first, not offline-only. It is the
-transparent development version of the planned hosted product.
+The repository is the transparent development version of the hosted product
+and can still be run locally.
 
-**Stored on your computer:** your profile, search preferences, listings, scan
-history, application records, uploaded résumé, and provider settings. The local
-server listens only on `127.0.0.1`.
+**Stored by the edition you use:** the local edition keeps its database on your
+computer and listens only on `127.0.0.1`. The hosted edition separates every
+account's profile, listings, and application record; provider keys are encrypted
+before persistence and are never returned in full.
 
 **Sent when you ask for it:**
 
@@ -194,8 +197,7 @@ contacting.
 
 ## What works today
 
-- Local onboarding, profiles, role preferences, search presets, and watched
-  companies.
+- Onboarding, profiles, role preferences, and search presets.
 - Multi-source searches, deduplication, source health, cancellation, and scan
   history.
 - Rule-based and optional AI-assisted filtering plus fit scoring.
@@ -208,7 +210,7 @@ contacting.
 
 ## Known limits
 
-- There is no hosted edition; the local server must be running.
+- The hosted service is not publicly open yet; access begins invite-only.
 - Job-source coverage changes over time, especially scraper-backed sources.
 - AI judgments are suggestions. Read the listing and verify the employer before
   acting.
@@ -224,7 +226,6 @@ contacting.
   application workflow, and optional integrations.
 - **`shared/`** — types, platform definitions, and shared catalog rules.
 - **`drizzle/`** — the local SQLite schema and migrations.
-- **`companies-catalog.yaml`** — maintained public ATS-board catalog.
 - **`docs/CONCIERGE_PROMPT.md`** — a tested prompt for a browser assistant.
 - **`docs/internal/`** — architecture, decisions, active work, and the semantic
   hook inventory for contributors.
@@ -234,11 +235,9 @@ contacting.
 
 ## Contributing and maintenance
 
-Bug reports, company suggestions, and focused code contributions are welcome.
+Bug reports and focused code contributions are welcome.
 Please open an issue before a code pull request so the approach can be checked
-against the project's local-first and human-approval boundaries. The company
-catalog is maintainer-curated; suggest additions through its issue template
-rather than editing the catalog directly.
+against the project's tenant-isolation and human-approval boundaries.
 
 Job Matrix is maintained on a best-effort basis. An issue is an invitation to
 investigate, not a promise of a roadmap or response date. See

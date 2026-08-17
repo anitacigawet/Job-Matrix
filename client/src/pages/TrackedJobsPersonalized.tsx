@@ -915,7 +915,7 @@ export function TrackedJobsPersonalized() {
       },
     ]);
 
-    globalSearch.mutate();
+    globalSearch.mutate({ requestId: crypto.randomUUID() });
   };
 
   const handleAIAnalysis = () => {

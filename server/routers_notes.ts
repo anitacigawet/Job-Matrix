@@ -17,8 +17,8 @@ export const notesRouter = router({
       jobId: z.number(),
       noteType: z.enum(["note", "status_change", "interview", "follow_up", "offer", "rejection"]),
       content: z.string().min(1).max(5000),
-      oldStatus: z.string().optional(),
-      newStatus: z.string().optional(),
+      oldStatus: z.string().max(120).optional(),
+      newStatus: z.string().max(120).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       await addApplicationNote({

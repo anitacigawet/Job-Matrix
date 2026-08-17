@@ -48,7 +48,6 @@ const SUBNAV_BY_ROUTE: Record<string, SubNavItem[]> = {
     { id: "resume", label: "Résumé" },
     { id: "applications", label: "Application details" },
     { id: "presets", label: "Presets" },
-    { id: "companies", label: "Companies" },
   ],
   "/analytics": [
     { id: "pipeline", label: "Pipeline" },

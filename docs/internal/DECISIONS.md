@@ -656,3 +656,55 @@ management, background work, source permissions, and a new privacy/threat model
 must land before the service is exposed publicly. The local SQLite build remains
 a development reference during that conversion, not the final distribution
 model. PolyForm Noncommercial 1.0.0 and contributor ownership remain unchanged.
+
+---
+
+## D-029 — Invite-only hosted admission, central owner controls, and retirement of the ATS catalog
+
+**Date:** 2026-08-17
+**Status:** active (extends D-028 and retires the Phase 14/16 ATS-catalog runtime)
+
+**Decision.** The first hosted Job Matrix release is invite-only. Cloudflare
+Access establishes the person's email identity, and a separate ScootSolute
+owner service decides whether that identity may enter Job Matrix. The owner
+service is not part of the Job Matrix process or database. It owns project
+access, account suspension, per-person allowances, whole-site ceilings, a
+project pause, an all-project stop, and an append-only owner-action record.
+
+A scrape search must reserve capacity with the owner service before any source
+request or queue entry. The starting allowance is three searches per person per
+UTC day with a whole-site ceiling of thirty. Reservation identifiers are
+idempotent, and one identifier may execute at most once. One account may have
+only one active or waiting search, and allowance is reserved before long-lived
+queue entry. The control service fails closed: if it is unavailable, Job Matrix
+starts no scrape work. Each hosted search is also bounded to three role titles,
+two locations, twenty-five requested results per title, bounded listing fields
+and subprocess output, and the explicitly approved hosted source list.
+Automatic searches, hosted pause, and alternate scrape routes are disabled.
+
+The NotebookLM experiment and the watched-company ATS catalog are absent from
+the current runtime and interface but remain recoverable in Git history. The
+legacy watched-company table may remain in an existing local database so this
+retirement does not destroy user data. Gmail polling, Slack owner hooks, and
+static resume-file serving remain local-edition capabilities; they do not run
+on the first hosted service.
+
+Hosted provider settings are tenant-specific and encrypted with AES-256-GCM
+before persistence. Shared environment provider keys are ignored in hosted
+mode. Expensive AI operations are bounded per account and across the process.
+Hosted persistence uses Node's native SQLite driver with WAL instead of the
+local edition's portable sql.js whole-file snapshots. Persisted request fields,
+presets, stored jobs, and request bodies have explicit ceilings. Account data
+stays in the Job Matrix database; admission policy stays in the owner-service
+database. Both services bind only to loopback and are reached through a new
+dedicated ScootSolute VPS and Cloudflare Tunnel. The existing Personal Dashboard
+server, data, tunnel, and credentials are explicitly out of scope and must never
+be reused for this project.
+
+**Consequences.** The owner console can later add projects without giving those
+projects owner privileges. A compromised project cannot approve users or raise
+its own limits. Abuse can consume only the fixed server capacity and the
+predeclared daily allowance; it cannot silently enable paid proxies or a
+usage-priced scraping service. Public launch still requires the separate VPS,
+Cloudflare Access policies, tunnel routes, backup policy, and a rendered hosted
+smoke test.

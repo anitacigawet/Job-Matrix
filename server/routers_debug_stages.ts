@@ -17,6 +17,7 @@ export const debugStagesRouter = router({
    * Debug: Get first 20 unanalyzed jobs for testing
    */
   getTestJobs: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.hosted) throw new Error("Debug-stage tools are not available on the hosted service.");
     // Initialize debug log file for new test session
     initializeDebugLog();
     
@@ -51,9 +52,10 @@ export const debugStagesRouter = router({
    */
   runStage1: protectedProcedure
     .input(z.object({
-      jobIds: z.array(z.string()),
+      jobIds: z.array(z.string().min(1).max(500)).max(20),
     }))
     .mutation(async ({ ctx, input }) => {
+      if (ctx.hosted) throw new Error("Debug-stage tools are not available on the hosted service.");
       console.log(`[Debug Stage 1] Starting remote/location filter for ${input.jobIds.length} jobs`);
       
       const db = await getDb();
@@ -95,9 +97,10 @@ export const debugStagesRouter = router({
    */
   runStage2: protectedProcedure
     .input(z.object({
-      jobIds: z.array(z.string()),
+      jobIds: z.array(z.string().min(1).max(500)).max(20),
     }))
     .mutation(async ({ ctx, input }) => {
+      if (ctx.hosted) throw new Error("Debug-stage tools are not available on the hosted service.");
       console.log(`[Debug Stage 2] Starting degree filter for ${input.jobIds.length} jobs`);
       
       const db = await getDb();
@@ -139,9 +142,10 @@ export const debugStagesRouter = router({
    */
   runStage3: protectedProcedure
     .input(z.object({
-      jobIds: z.array(z.string()),
+      jobIds: z.array(z.string().min(1).max(500)).max(20),
     }))
     .mutation(async ({ ctx, input }) => {
+      if (ctx.hosted) throw new Error("Debug-stage tools are not available on the hosted service.");
       console.log(`[Debug Stage 3] Starting experience filter for ${input.jobIds.length} jobs`);
       
       const db = await getDb();

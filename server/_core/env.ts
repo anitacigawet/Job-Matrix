@@ -18,9 +18,13 @@ const envProviderTyped: ProviderId | undefined = (PROVIDER_ORDER as string[]).in
 
 export const ENV = {
   isProduction: process.env.NODE_ENV === "production",
+  hostedMode: process.env.HOSTED_MODE === "true",
   databasePath: process.env.DATABASE_PATH ?? path.resolve(process.cwd(), "data", "app.db"),
   settingsPath: process.env.SETTINGS_PATH ?? path.resolve(process.cwd(), "data", "settings.json"),
   port: parseInt(process.env.PORT ?? "3000", 10),
+  controlPlaneUrl: process.env.CONTROL_PLANE_URL ?? "http://127.0.0.1:3100",
+  controlServiceToken: process.env.CONTROL_SERVICE_TOKEN ?? "",
+  settingsEncryptionKey: process.env.SETTINGS_ENCRYPTION_KEY ?? "",
 
   /** Active provider override from env. Settings file wins if this is undefined. */
   llmProvider: envProviderTyped,

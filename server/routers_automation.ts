@@ -130,9 +130,12 @@ export const automationRouter = router({
         "application/msword",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       ]),
-      base64: z.string().min(1),
+      base64: z.string().min(1).max(14 * 1024 * 1024),
     }))
     .mutation(async ({ ctx, input }) => {
+      if (ctx.hosted) {
+        throw new Error("Stored résumé files are not available on the hosted service. Keep your résumé on your device for browser-assisted applications.");
+      }
       const buffer = Buffer.from(input.base64, "base64");
       if (buffer.length === 0 || buffer.length > MAX_RESUME_BYTES) {
         throw new Error("Résumé files must be 10 MB or smaller.");
@@ -169,7 +172,7 @@ export const automationRouter = router({
     }),
 
   createGmailAuthUrl: protectedProcedure
-    .input(z.object({ origin: z.string().url() }))
+    .input(z.object({ origin: z.string().url().max(2_048) }))
     .mutation(({ input }) => ({ url: createGmailAuthorizationUrl(input.origin) })),
 
   disconnectGmail: protectedProcedure.mutation(async ({ ctx }) => {

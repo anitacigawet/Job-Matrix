@@ -6,23 +6,23 @@
 import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { searchJobs, type SupportedPlatform } from "../routers_indeed";
-import { bulkSaveTrackedJobs, createJobScanHistory, updateJobScanHistory, listWatchedCompanies, getActiveJobTitles } from "../db";
+import { bulkSaveTrackedJobs, createJobScanHistory, updateJobScanHistory, getActiveJobTitles } from "../db";
 import { loadUserProfileForFilter, loadJobSearchCriteria, loadEnabledPlatforms } from "../user-profile";
-import { readCompaniesCatalog } from "../companies-catalog";
-import { fetchCompanyJobs } from "../sources/ats/base";
 import { filterRemoteEligibility, filterDegreeRequirements, filterExperienceRequirements } from "../ai-job-filter-csv";
 import { scoreJobFit } from "../services/dedup-and-scoring";
 import { getDb } from "../db";
 import { trackedJobs, jobScanHistory, userJobTitles, userProfiles, searchPresets, applicationNotes, debugLogs, users, appliedJobs, applicationProfiles, inboxMessages } from "../../drizzle/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
-import { killAllScrapeProcesses } from "../scrape-process-registry";
+import { killAllScrapeProcesses, killScrapeProcessesForScan } from "../scrape-process-registry";
 import { normalizeStoredJobSource } from "../services/job-source-id";
 import fs from "node:fs";
 import path from "node:path";
 import { ENV } from "../_core/env";
+import { randomUUID } from "node:crypto";
+import { reserveHostedSearch } from "../services/control-plane";
+import { hostedWorkCoordinator } from "../services/hosted-work-coordinator";
 
 const OPERATION_CONTROL_POLL_MS = 2000;
-
 async function enforceOperationControls(scanId: number, db: any) {
   while (true) {
     const [scan] = await db
@@ -38,6 +38,9 @@ async function enforceOperationControls(scanId: number, db: any) {
     }
 
     if (scan.operationPaused) {
+      if (ENV.hostedMode) {
+        throw new Error("Paused operations are not retained on the hosted service. Start a new operation.");
+      }
       await new Promise(resolve => setTimeout(resolve, OPERATION_CONTROL_POLL_MS));
       continue;
     }
@@ -61,6 +64,13 @@ async function getLatestRunningScanForUser(userId: number, db: any) {
   return runningScans[0] ?? null;
 }
 
+function withHostedAiOperation<T>(
+  ctx: { hosted?: boolean; user: { id: number } },
+  operation: () => Promise<T>,
+): Promise<T> {
+  return ctx.hosted ? hostedWorkCoordinator.runAi(ctx.user.id, operation) : operation();
+}
+
 export const scanRouter = router({
   
   /**
@@ -68,12 +78,24 @@ export const scanRouter = router({
    * Searches all job titles across all locations (dynamic from user profile)
    * Saves ALL jobs to database WITHOUT AI filtering
    */
-  runGlobalSearch: adminProcedure.mutation(async ({ ctx }) => {
+  runGlobalSearch: adminProcedure
+    .input(z.object({ requestId: z.string().uuid() }).optional())
+    .mutation(async ({ ctx, input }) => {
+    const executeSearch = async () => {
 
     // Load dynamic search criteria from user profile
-    const searchCriteria = await loadJobSearchCriteria(ctx.user.id);
+    const loadedSearchCriteria = await loadJobSearchCriteria(ctx.user.id);
+    const searchCriteria = ctx.hosted
+      ? { locations: loadedSearchCriteria.locations.slice(0, 2), resultsPerTitle: 25 }
+      : loadedSearchCriteria;
     const userProfile = await loadUserProfileForFilter(ctx.user.id);
-    const enabledPlatforms = await loadEnabledPlatforms(ctx.user.id);
+    const configuredPlatforms = await loadEnabledPlatforms(ctx.user.id);
+    const hostedPlatforms = new Set<SupportedPlatform>(["indeed", "linkedin"]);
+    const enabledPlatforms = ctx.hosted
+      ? configuredPlatforms.filter(platform => hostedPlatforms.has(platform as SupportedPlatform))
+      : configuredPlatforms;
+
+    if (enabledPlatforms.length === 0) enabledPlatforms.push("indeed");
 
     console.log(`[Global Search] Enabled platforms: [${enabledPlatforms.join(", ")}]`);
     
@@ -81,7 +103,8 @@ export const scanRouter = router({
     const db = await getDb();
     if (!db) throw new Error("Database not available");
     
-    const targetTitles = await getActiveJobTitles(ctx.user.id);
+    const allTargetTitles = await getActiveJobTitles(ctx.user.id);
+    const targetTitles = ctx.hosted ? allTargetTitles.slice(0, 3) : allTargetTitles;
     
     if (targetTitles.length === 0) {
       throw new Error("No job titles configured. Please complete onboarding first.");
@@ -186,7 +209,8 @@ export const scanRouter = router({
             location.radiusMiles,
             searchCriteria.resultsPerTitle,
             336, // 14 days
-            enabledPlatforms as SupportedPlatform[]
+            enabledPlatforms as SupportedPlatform[],
+            { userId: ctx.user.id, scanId },
           );
 
           if (!result.success) {
@@ -213,58 +237,6 @@ export const scanRouter = router({
             completedSearches,
           });
         }
-      }
-
-      // ── Phase 14: per-company ATS fan-out ────────────────────────────
-      // For each watched company, fetch their full job board (filtered by
-      // searchTerm + hoursOld inside the adapter) once per user title.
-      // Per-company adapters are cheap (one HTTP request, no auth) so
-      // looping per-title gives the user broader coverage without
-      // hammering any single endpoint.
-      const watched = await listWatchedCompanies(ctx.user.id);
-      if (watched.length > 0) {
-        const catalog = readCompaniesCatalog();
-        const bySlug = new Map(catalog.map((c) => [c.slug, c]));
-        const watchedEntries = watched
-          .map((w) => bySlug.get(w.companySlug))
-          .filter((c): c is NonNullable<typeof c> => c !== undefined);
-
-        console.log(`[Global Search] Watched companies fan-out: ${watchedEntries.length} companies × ${targetTitles.length} titles`);
-
-        for (const title of targetTitles) {
-          await enforceOperationControls(scanId, db);
-
-          // Parallel per-company calls — they hit different hosts so
-          // there's no rate-limit collision risk.
-          const settled = await Promise.all(watchedEntries.map((company) =>
-            fetchCompanyJobs(company, {
-              searchTerm: title,
-              location: locationDesc,
-              resultsWanted: 50,
-              hoursOld: 336,
-            }).then((result) => ({ company, result }))
-          ));
-
-          for (const { company, result } of settled) {
-            if (!result.success) {
-              console.error(`[Global Search] ${company.name} (${company.ats}) failed:`, result.error);
-              failedSearchCount++;
-              if (!firstSearchError) firstSearchError = `${company.name}: ${result.error}`;
-              continue;
-            }
-            if (result.platformBreakdown) {
-              for (const [platform, count] of Object.entries(result.platformBreakdown)) {
-                platformBreakdown[platform] = (platformBreakdown[platform] || 0) + count;
-              }
-            }
-            // Patch the company display name into each job's `company`
-            // field — adapters return `boardId` (raw slug) as a placeholder.
-            const rebadged = result.jobs.map((j) => ({ ...j, company: company.name }));
-            totalJobsFound += rebadged.length;
-            allJobs.push(...rebadged);
-          }
-        }
-        console.log(`[Global Search] Per-company fan-out complete (running total: ${totalJobsFound})`);
       }
 
       console.log(`[Global Search] Complete: Found ${totalJobsFound} total jobs`);
@@ -381,12 +353,42 @@ export const scanRouter = router({
 
       throw error;
     }
+    };
+
+    if (!ctx.hosted) return executeSearch();
+
+    const outcome = await hostedWorkCoordinator.runSearch(
+      ctx.user.id,
+      () => reserveHostedSearch(ctx.identityEmail!, input?.requestId ?? randomUUID()),
+      executeSearch,
+    );
+    if (outcome.kind === "denied") {
+      const messages: Record<string, string> = {
+        "project-paused": "Job searches are temporarily paused by the site owner.",
+        "personal-limit-reached": "You have used today’s three job searches. Your allowance resets at midnight UTC.",
+        "site-limit-reached": "Job Matrix has reached today’s whole-site search ceiling. Searches reset at midnight UTC.",
+        "account-suspended": "This Job Matrix account is suspended.",
+      };
+      throw new Error(messages[outcome.reservation.reason ?? ""] ?? "This search was not admitted. No scraping was started.");
+    }
+    if (outcome.kind === "duplicate") {
+      return {
+        success: true,
+        totalJobsFound: 0,
+        newJobsFound: 0,
+        failedSearchCount: 0,
+        totalSearches: 0,
+        platformBreakdown: {},
+        message: "This search request was already accepted. Its existing progress or results were kept; no second search was started.",
+      };
+    }
+    return outcome.value;
   }),
 
   /**
    * PHASE 2: AI Job Filtering (Multi-Stage LLM Filtering)
    */
-  runAIAnalysis: adminProcedure.mutation(async ({ ctx }) => {
+  runAIAnalysis: adminProcedure.mutation(({ ctx }) => withHostedAiOperation(ctx, async () => {
     console.log("[AI Job Filtering] Starting 3-stage LLM filtering");
     let scanId: number | undefined;
 
@@ -405,7 +407,8 @@ export const scanRouter = router({
             eq(trackedJobs.userId, ctx.user.id),
             isNull(trackedJobs.aiAnalysis)
           )
-        );
+        )
+        .limit(ctx.hosted ? 100 : Number.MAX_SAFE_INTEGER);
 
       if (unanalyzedJobs.length === 0) {
         console.log("[AI Job Filtering] No unanalyzed jobs found");
@@ -617,12 +620,12 @@ export const scanRouter = router({
       
       throw error;
     }
-  }),
+  })),
 
   /**
    * TEST MODE: AI Job Filtering on First 20 Jobs
    */
-  runAIAnalysisTest: adminProcedure.mutation(async ({ ctx }) => {
+  runAIAnalysisTest: adminProcedure.mutation(({ ctx }) => withHostedAiOperation(ctx, async () => {
     console.log("[AI Job Filtering TEST] Starting test with first 20 jobs");
     let scanId: number | undefined;
 
@@ -752,7 +755,7 @@ export const scanRouter = router({
       }
       throw error;
     }
-  }),
+  })),
 
   /**
    * PHASE 3: Database Cleanup
@@ -809,6 +812,9 @@ export const scanRouter = router({
    * Pause the current operation
    */
   pauseOperation: protectedProcedure.mutation(async ({ ctx }) => {
+    if (ctx.hosted) {
+      throw new Error("Pause is not available for hosted operations. Cancel the operation and start a new one when ready.");
+    }
     console.log("[Pause] Pausing current operation");
 
     try {
@@ -839,6 +845,9 @@ export const scanRouter = router({
    * Resume a paused operation
    */
   resumeOperation: protectedProcedure.mutation(async ({ ctx }) => {
+    if (ctx.hosted) {
+      throw new Error("Hosted operations do not retain a paused worker. Start a new operation instead.");
+    }
     console.log("[Resume] Resuming paused operation");
 
     try {
@@ -896,7 +905,9 @@ export const scanRouter = router({
       // enforceOperationControls only picks up the cancel flag at
       // between-search checkpoints — which can be tens of seconds away
       // when JobSpy is mid-request.
-      const killed = killAllScrapeProcesses();
+      const killed = ctx.hosted
+        ? killScrapeProcessesForScan(ctx.user.id, scanId)
+        : killAllScrapeProcesses();
       console.log(`[Cancel] Operation ${scanId} cancelled (sent SIGTERM to ${killed.count} subprocess(es))`);
       return {
         success: true,
@@ -914,7 +925,7 @@ export const scanRouter = router({
    * PHASE 3: AI Match Scoring
    * Scores eligible jobs against the user's profile using LLM
    */
-  runFitScoring: adminProcedure.mutation(async ({ ctx }) => {
+  runFitScoring: adminProcedure.mutation(({ ctx }) => withHostedAiOperation(ctx, async () => {
     console.log("[AI Match Scoring] Starting LLM-powered fit scoring");
     let scanId: number | undefined;
 
@@ -939,7 +950,7 @@ export const scanRouter = router({
         if (!job.aiAnalysis) return false;
         const analysis = job.aiAnalysis as any;
         return analysis.eligible === true && !analysis.fitScore;
-      });
+      }).slice(0, ctx.hosted ? 200 : undefined);
 
       if (eligibleJobs.length === 0) {
         return {
@@ -1035,7 +1046,7 @@ export const scanRouter = router({
       }
       throw error;
     }
-  }),
+  })),
 
   /**
    * EMERGENCY: Nuke everything
@@ -1052,7 +1063,7 @@ export const scanRouter = router({
     // of permanently deleting the file.
     const [applicationProfile] = await db.select().from(applicationProfiles)
       .where(eq(applicationProfiles.userId, userId)).limit(1);
-    if (applicationProfile?.resumeFilePath && fs.existsSync(applicationProfile.resumeFilePath)) {
+    if (!ctx.hosted && applicationProfile?.resumeFilePath && fs.existsSync(applicationProfile.resumeFilePath)) {
       try {
         const archiveDir = path.join(path.dirname(ENV.databasePath), "archived-assets");
         fs.mkdirSync(archiveDir, { recursive: true });

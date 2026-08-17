@@ -1,6 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { ENV, DEFAULT_PROVIDER, PROVIDER_DEFAULT_MODEL, PROVIDER_ORDER, type ProviderId } from "./env";
+import { getDb } from "../db";
+import { userSecretSettings } from "../../drizzle/schema";
 
 /**
  * Per-source credential shapes for Tier-1 data sources. Each entry holds
@@ -61,6 +66,86 @@ export type AppSettings = {
 };
 
 let cached: AppSettings | null = null;
+const hostedSettings = new AsyncLocalStorage<AppSettings>();
+
+function encryptionKey(): Buffer {
+  const key = Buffer.from(ENV.settingsEncryptionKey, "base64");
+  if (key.length !== 32) throw new Error("SETTINGS_ENCRYPTION_KEY must be a base64-encoded 32-byte key.");
+  return key;
+}
+
+function encryptSettings(settings: AppSettings) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
+  const ciphertext = Buffer.concat([cipher.update(JSON.stringify(settings), "utf8"), cipher.final()]);
+  return {
+    ciphertext: ciphertext.toString("base64"),
+    iv: iv.toString("base64"),
+    authTag: cipher.getAuthTag().toString("base64"),
+  };
+}
+
+function decryptSettings(row: { ciphertext: string; iv: string; authTag: string }): AppSettings {
+  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(row.iv, "base64"));
+  decipher.setAuthTag(Buffer.from(row.authTag, "base64"));
+  const plaintext = Buffer.concat([
+    decipher.update(Buffer.from(row.ciphertext, "base64")),
+    decipher.final(),
+  ]).toString("utf8");
+  return JSON.parse(plaintext) as AppSettings;
+}
+
+export async function runWithUserSettings<T>(userId: number, operation: () => Promise<T>): Promise<T> {
+  if (!ENV.hostedMode) return operation();
+  const db = await getDb();
+  const [row] = await db.select().from(userSecretSettings).where(eq(userSecretSettings.userId, userId)).limit(1);
+  const settings = row ? decryptSettings(row) : {};
+  return hostedSettings.run(settings, operation);
+}
+
+export async function saveUserSettings(userId: number, next: Partial<AppSettings>): Promise<AppSettings> {
+  if (!ENV.hostedMode) return writeSettings(next);
+  const current = hostedSettings.getStore() ?? {};
+  const merged = { ...current, ...next };
+  const encrypted = encryptSettings(merged);
+  const db = await getDb();
+  await db.insert(userSecretSettings).values({ userId, ...encrypted, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: userSecretSettings.userId,
+      set: { ...encrypted, updatedAt: new Date() },
+    });
+  Object.assign(current, merged);
+  return merged;
+}
+
+async function replaceUserSettings(userId: number, replacement: AppSettings): Promise<AppSettings> {
+  const encrypted = encryptSettings(replacement);
+  const db = await getDb();
+  await db.insert(userSecretSettings).values({ userId, ...encrypted, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: userSecretSettings.userId,
+      set: { ...encrypted, updatedAt: new Date() },
+    });
+  const store = hostedSettings.getStore();
+  if (store) {
+    for (const key of Object.keys(store) as Array<keyof AppSettings>) delete store[key];
+    Object.assign(store, replacement);
+  }
+  return replacement;
+}
+
+export function settingsWithoutProviderKey(settings: AppSettings, provider: ProviderId): AppSettings {
+  const next = { ...settings };
+  if (provider === "gemini") delete next.geminiKey;
+  if (provider === "openai") delete next.openaiKey;
+  if (provider === "deepseek") delete next.deepseekKey;
+  return next;
+}
+
+export async function removeUserProviderKey(userId: number, provider: ProviderId): Promise<AppSettings> {
+  const current = hostedSettings.getStore() ?? {};
+  return replaceUserSettings(userId, settingsWithoutProviderKey(current, provider));
+}
 
 function ensureDir(): void {
   const dir = path.dirname(ENV.settingsPath);
@@ -68,6 +153,7 @@ function ensureDir(): void {
 }
 
 export function readSettings(): AppSettings {
+  if (ENV.hostedMode) return hostedSettings.getStore() ?? {};
   if (cached) return cached;
   try {
     if (fs.existsSync(ENV.settingsPath)) {
@@ -114,6 +200,7 @@ export function readSettings(): AppSettings {
 }
 
 export function writeSettings(next: Partial<AppSettings>): AppSettings {
+  if (ENV.hostedMode) throw new Error("Hosted settings must be saved to the signed-in account.");
   ensureDir();
   const merged = { ...readSettings(), ...next };
   const pendingPath = `${ENV.settingsPath}.${process.pid}.pending`;
@@ -168,7 +255,7 @@ export function clearProviderKey(provider: ProviderId): void {
 
 /** Active provider: env wins, then settings file, then default. */
 export function resolveActiveProvider(): ProviderId {
-  if (ENV.llmProvider) return ENV.llmProvider;
+  if (!ENV.hostedMode && ENV.llmProvider) return ENV.llmProvider;
   return readSettings().activeProvider ?? DEFAULT_PROVIDER;
 }
 
@@ -177,7 +264,7 @@ export function resolveProviderKey(provider: ProviderId): string | undefined {
     provider === "gemini" ? ENV.geminiKey :
     provider === "openai" ? ENV.openaiKey :
     ENV.deepseekKey;
-  if (fromEnv) return fromEnv;
+  if (!ENV.hostedMode && fromEnv) return fromEnv;
 
   const settings = readSettings();
   const stored =
@@ -192,7 +279,7 @@ export function resolveProviderModel(provider: ProviderId): string {
     provider === "gemini" ? ENV.geminiModel :
     provider === "openai" ? ENV.openaiModel :
     ENV.deepseekModel;
-  if (fromEnv) return fromEnv;
+  if (!ENV.hostedMode && fromEnv) return fromEnv;
 
   const settings = readSettings();
   const stored =
@@ -228,13 +315,13 @@ export function getSettingsForApi() {
       keyMasked: maskKey(key),
       model: resolveProviderModel(p),
       defaultModel: PROVIDER_DEFAULT_MODEL[p],
-      keySource: envKey ? ("env" as const) : (key ? ("settings" as const) : ("none" as const)),
+      keySource: !ENV.hostedMode && envKey ? ("env" as const) : (key ? ("settings" as const) : ("none" as const)),
     };
   });
 
   return {
     activeProvider: active,
-    activeProviderSource: ENV.llmProvider ? ("env" as const) : ("settings" as const),
+    activeProviderSource: !ENV.hostedMode && ENV.llmProvider ? ("env" as const) : ("settings" as const),
     rateLimitRps: resolveRateLimitRps(),
     providers,
   };
