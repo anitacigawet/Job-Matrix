@@ -12,7 +12,9 @@ import { sql } from "drizzle-orm";
  */
 
 const ts = (name: string) =>
-  integer(name, { mode: "timestamp" }).default(sql`(unixepoch())`).notNull();
+  integer(name, { mode: "timestamp" })
+    .default(sql`(unixepoch())`)
+    .notNull();
 
 const tsNullable = (name: string) => integer(name, { mode: "timestamp" });
 
@@ -37,7 +39,10 @@ export type InsertUser = typeof users.$inferInsert;
 // ── job_preferences ──────────────────────────────────────────────────
 export const jobPreferences = sqliteTable("job_preferences", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" })
+    .unique(),
   targetTitles: text("target_titles").notNull(),
   location: text("location").notNull(),
   radiusMiles: integer("radius_miles").notNull().default(50),
@@ -57,8 +62,24 @@ export type InsertJobPreferences = typeof jobPreferences.$inferInsert;
 // ── platform_credentials ─────────────────────────────────────────────
 export const platformCredentials = sqliteTable("platform_credentials", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  platform: text("platform").$type<"indeed" | "glassdoor" | "linkedin" | "ziprecruiter" | "google" | "adzuna" | "usajobs" | "jooble" | "themuse" | "remotive" | "remoteok">().notNull(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  platform: text("platform")
+    .$type<
+      | "indeed"
+      | "glassdoor"
+      | "linkedin"
+      | "ziprecruiter"
+      | "google"
+      | "adzuna"
+      | "usajobs"
+      | "jooble"
+      | "themuse"
+      | "remotive"
+      | "remoteok"
+    >()
+    .notNull(),
   cookiesJson: text("cookies_json"),
   cookieString: text("cookie_string"),
   localStorageJson: text("local_storage_json"),
@@ -73,8 +94,24 @@ export type InsertPlatformCredentials = typeof platformCredentials.$inferInsert;
 // ── tracked_jobs ─────────────────────────────────────────────────────
 export const trackedJobs = sqliteTable("tracked_jobs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  platform: text("platform").$type<"indeed" | "glassdoor" | "linkedin" | "ziprecruiter" | "google" | "adzuna" | "usajobs" | "jooble" | "themuse" | "remotive" | "remoteok">().notNull(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  platform: text("platform")
+    .$type<
+      | "indeed"
+      | "glassdoor"
+      | "linkedin"
+      | "ziprecruiter"
+      | "google"
+      | "adzuna"
+      | "usajobs"
+      | "jooble"
+      | "themuse"
+      | "remotive"
+      | "remoteok"
+    >()
+    .notNull(),
   jobId: text("job_id").notNull(),
   title: text("title").notNull(),
   company: text("company").notNull(),
@@ -88,7 +125,10 @@ export const trackedJobs = sqliteTable("tracked_jobs", {
   description: text("description"),
   jobUrl: text("job_url").notNull(),
   datePosted: text("date_posted"),
-  status: text("status").$type<"new" | "viewed" | "applied" | "interested" | "rejected">().notNull().default("new"),
+  status: text("status")
+    .$type<"new" | "viewed" | "applied" | "interested" | "rejected">()
+    .notNull()
+    .default("new"),
   firstSeenAt: ts("first_seen_at"),
   lastSeenAt: ts("last_seen_at"),
   aiAnalysis: text("ai_analysis", { mode: "json" }).$type<{
@@ -121,9 +161,25 @@ export type InsertTrackedJob = typeof trackedJobs.$inferInsert;
 // ── applied_jobs ─────────────────────────────────────────────────────
 export const appliedJobs = sqliteTable("applied_jobs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   trackedJobId: integer("tracked_job_id"),
-  platform: text("platform").$type<"indeed" | "glassdoor" | "linkedin" | "ziprecruiter" | "google" | "adzuna" | "usajobs" | "jooble" | "themuse" | "remotive" | "remoteok">().notNull(),
+  platform: text("platform")
+    .$type<
+      | "indeed"
+      | "glassdoor"
+      | "linkedin"
+      | "ziprecruiter"
+      | "google"
+      | "adzuna"
+      | "usajobs"
+      | "jooble"
+      | "themuse"
+      | "remotive"
+      | "remoteok"
+    >()
+    .notNull(),
   jobId: text("job_id").notNull(),
   title: text("title").notNull(),
   company: text("company").notNull(),
@@ -135,7 +191,9 @@ export const appliedJobs = sqliteTable("applied_jobs", {
   description: text("description"),
   jobUrl: text("job_url").notNull(),
   applicationStatus: text("application_status")
-    .$type<"applied" | "interview" | "offer" | "accepted" | "rejected" | "ghosted">()
+    .$type<
+      "applied" | "interview" | "offer" | "accepted" | "rejected" | "ghosted"
+    >()
     .notNull()
     .default("applied"),
   firstTrackedAt: integer("first_tracked_at", { mode: "timestamp" }).notNull(),
@@ -152,24 +210,52 @@ export type InsertAppliedJob = typeof appliedJobs.$inferInsert;
 // ── job_scan_history ─────────────────────────────────────────────────
 export const jobScanHistory = sqliteTable("job_scan_history", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  platform: text("platform").$type<"indeed" | "glassdoor" | "linkedin" | "ziprecruiter" | "google" | "adzuna" | "usajobs" | "jooble" | "themuse" | "remotive" | "remoteok" | "multi">().notNull(),
-  scanType: text("scan_type").$type<"broad_search" | "ai_analysis" | "clean_database" | "fit_scoring">().notNull(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  platform: text("platform")
+    .$type<
+      | "indeed"
+      | "glassdoor"
+      | "linkedin"
+      | "ziprecruiter"
+      | "google"
+      | "adzuna"
+      | "usajobs"
+      | "jooble"
+      | "themuse"
+      | "remotive"
+      | "remoteok"
+      | "multi"
+    >()
+    .notNull(),
+  scanType: text("scan_type")
+    .$type<"broad_search" | "ai_analysis" | "clean_database" | "fit_scoring">()
+    .notNull(),
   searchTerms: text("search_terms").notNull(),
   location: text("location").notNull(),
   radiusMiles: integer("radius_miles").notNull(),
   totalJobsFound: integer("total_jobs_found").notNull(),
   newJobsFound: integer("new_jobs_found").notNull(),
-  status: text("status").$type<"running" | "completed" | "failed">().notNull().default("running"),
+  status: text("status")
+    .$type<"running" | "completed" | "failed">()
+    .notNull()
+    .default("running"),
   errorMessage: text("error_message"),
   currentPhase: text("current_phase"),
   currentProgress: integer("current_progress"),
   totalProgress: integer("total_progress"),
   progressMessage: text("progress_message"),
   lastProgressUpdate: tsNullable("last_progress_update"),
-  completedSearches: text("completed_searches", { mode: "json" }).$type<Array<{ title: string; location: string }>>(),
-  operationPaused: integer("operation_paused", { mode: "boolean" }).notNull().default(false),
-  operationCancelled: integer("operation_cancelled", { mode: "boolean" }).notNull().default(false),
+  completedSearches: text("completed_searches", { mode: "json" }).$type<
+    Array<{ title: string; location: string }>
+  >(),
+  operationPaused: integer("operation_paused", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  operationCancelled: integer("operation_cancelled", { mode: "boolean" })
+    .notNull()
+    .default(false),
   startedAt: ts("started_at"),
   completedAt: tsNullable("completed_at"),
 });
@@ -180,9 +266,13 @@ export type InsertJobScanHistory = typeof jobScanHistory.$inferInsert;
 // ── debug_logs ───────────────────────────────────────────────────────
 export const debugLogs = sqliteTable("debug_logs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => users.id, {
+    onDelete: "cascade",
+  }),
   sessionId: text("session_id").notNull(),
-  level: text("level").$type<"info" | "success" | "warning" | "error">().notNull(),
+  level: text("level")
+    .$type<"info" | "success" | "warning" | "error">()
+    .notNull(),
   message: text("message").notNull(),
   metadata: text("metadata"),
   createdAt: ts("created_at"),
@@ -194,7 +284,9 @@ export type InsertDebugLog = typeof debugLogs.$inferInsert;
 // ── user_job_titles ──────────────────────────────────────────────────
 export const userJobTitles = sqliteTable("user_job_titles", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   jobTitle: text("job_title").notNull(),
   isActive: integer("is_active").notNull().default(1),
   createdAt: ts("created_at"),
@@ -207,21 +299,39 @@ export type InsertUserJobTitle = typeof userJobTitles.$inferInsert;
 // ── user_profiles ────────────────────────────────────────────────────
 export const userProfiles = sqliteTable("user_profiles", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" })
+    .unique(),
   state: text("state").notNull(),
   city: text("city").notNull(),
   searchRadiusMiles: integer("search_radius_miles").notNull().default(50),
   willingToRelocate: integer("willing_to_relocate").notNull().default(0),
-  remotePreference: text("remote_preference").$type<"remote_only" | "hybrid" | "on_site" | "any">().notNull().default("any"),
+  remotePreference: text("remote_preference")
+    .$type<"remote_only" | "hybrid" | "on_site" | "any">()
+    .notNull()
+    .default("any"),
   educationLevel: text("education_level")
-    .$type<"no_degree" | "high_school" | "associates" | "bachelors" | "masters" | "phd">()
+    .$type<
+      | "no_degree"
+      | "high_school"
+      | "associates"
+      | "bachelors"
+      | "masters"
+      | "phd"
+    >()
     .notNull()
     .default("no_degree"),
-  yearsExperience: text("years_experience").$type<"0-1" | "1-3" | "3-5" | "5-10" | "10+">().notNull().default("0-1"),
+  yearsExperience: text("years_experience")
+    .$type<"0-1" | "1-3" | "3-5" | "5-10" | "10+">()
+    .notNull()
+    .default("0-1"),
   minSalary: integer("min_salary"),
   salaryFilterEnabled: integer("salary_filter_enabled").notNull().default(0),
   skillsRaw: text("skills_raw"),
-  skillsParsed: text("skills_parsed", { mode: "json" }).$type<Array<{ skill: string; yearsExperience: number; level: string }>>(),
+  skillsParsed: text("skills_parsed", { mode: "json" }).$type<
+    Array<{ skill: string; yearsExperience: number; level: string }>
+  >(),
   resumeText: text("resume_text"),
   createdAt: ts("created_at"),
   updatedAt: ts("updated_at"),
@@ -236,7 +346,10 @@ export type InsertUserProfile = typeof userProfiles.$inferInsert;
 // relevant while filling an employer's application form.
 export const applicationProfiles = sqliteTable("application_profiles", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" })
+    .unique(),
   fullName: text("full_name"),
   email: text("email"),
   phone: text("phone"),
@@ -265,8 +378,12 @@ export type InsertApplicationProfile = typeof applicationProfiles.$inferInsert;
 export const inviteCodes = sqliteTable("invite_codes", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   code: text("code").notNull().unique(),
-  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
-  usedBy: integer("used_by").references(() => users.id, { onDelete: "set null" }),
+  createdBy: integer("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  usedBy: integer("used_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
   usedAt: tsNullable("used_at"),
   expiresAt: tsNullable("expires_at"),
   maxUses: integer("max_uses").notNull().default(1),
@@ -280,11 +397,16 @@ export type InsertInviteCode = typeof inviteCodes.$inferInsert;
 // ── user_settings ────────────────────────────────────────────────────
 export const userSettings = sqliteTable("user_settings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" })
+    .unique(),
   notificationsEnabled: integer("notifications_enabled").notNull().default(1),
   notifyOnNewEligible: integer("notify_on_new_eligible").notNull().default(1),
   notifyOnScanComplete: integer("notify_on_scan_complete").notNull().default(1),
-  notifyOnEmployerResponse: integer("notify_on_employer_response").notNull().default(1),
+  notifyOnEmployerResponse: integer("notify_on_employer_response")
+    .notNull()
+    .default(1),
   notifyDigestFrequency: text("notify_digest_frequency")
     .$type<"immediate" | "daily" | "weekly" | "never">()
     .notNull()
@@ -297,14 +419,12 @@ export const userSettings = sqliteTable("user_settings", {
   autoScanIncludeAI: integer("auto_scan_include_ai").notNull().default(1),
   autoScanLastRun: tsNullable("auto_scan_last_run"),
   autoScanNextRun: tsNullable("auto_scan_next_run"),
-  enabledPlatforms: text("enabled_platforms", { mode: "json" }).$type<string[]>().default(["indeed"]),
-  // NotebookLM briefing schedules. Both default off — opt-in to avoid
-  // burning the user's NotebookLM generation quota silently.
-  autoDailyBriefing: integer("auto_daily_briefing").notNull().default(0),
-  autoDailyBriefingLastRun: tsNullable("auto_daily_briefing_last_run"),
-  autoWeeklyBriefing: integer("auto_weekly_briefing").notNull().default(0),
-  autoWeeklyBriefingLastRun: tsNullable("auto_weekly_briefing_last_run"),
-  inboxMonitoringEnabled: integer("inbox_monitoring_enabled").notNull().default(0),
+  enabledPlatforms: text("enabled_platforms", { mode: "json" })
+    .$type<string[]>()
+    .default(["indeed"]),
+  inboxMonitoringEnabled: integer("inbox_monitoring_enabled")
+    .notNull()
+    .default(0),
   gmailHistoryId: text("gmail_history_id"),
   inboxLastCheckedAt: tsNullable("inbox_last_checked_at"),
   createdAt: ts("created_at"),
@@ -317,13 +437,21 @@ export type InsertUserSettings = typeof userSettings.$inferInsert;
 // ── search_presets ───────────────────────────────────────────────────
 export const searchPresets = sqliteTable("search_presets", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   jobTitles: text("job_titles", { mode: "json" }).$type<string[]>().notNull(),
   location: text("location").notNull(),
   radiusMiles: integer("radius_miles").notNull().default(50),
-  remotePreference: text("remote_preference").$type<"remote_only" | "hybrid" | "on_site" | "any">().notNull().default("any"),
-  platforms: text("platforms", { mode: "json" }).$type<string[]>().notNull().default(["indeed"]),
+  remotePreference: text("remote_preference")
+    .$type<"remote_only" | "hybrid" | "on_site" | "any">()
+    .notNull()
+    .default("any"),
+  platforms: text("platforms", { mode: "json" })
+    .$type<string[]>()
+    .notNull()
+    .default(["indeed"]),
   minSalary: integer("min_salary"),
   jobType: text("job_type"),
   isDefault: integer("is_default").notNull().default(0),
@@ -338,10 +466,19 @@ export type InsertSearchPreset = typeof searchPresets.$inferInsert;
 // ── application_notes ────────────────────────────────────────────────
 export const applicationNotes = sqliteTable("application_notes", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   jobId: integer("job_id").notNull(),
   noteType: text("note_type")
-    .$type<"note" | "status_change" | "interview" | "follow_up" | "offer" | "rejection">()
+    .$type<
+      | "note"
+      | "status_change"
+      | "interview"
+      | "follow_up"
+      | "offer"
+      | "rejection"
+    >()
     .notNull()
     .default("note"),
   content: text("content").notNull(),
@@ -359,8 +496,12 @@ export type InsertApplicationNote = typeof applicationNotes.$inferInsert;
 // and human-readable summary needed by the Responses screen are retained.
 export const inboxMessages = sqliteTable("inbox_messages", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  appliedJobId: integer("applied_job_id").references(() => appliedJobs.id, { onDelete: "set null" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  appliedJobId: integer("applied_job_id").references(() => appliedJobs.id, {
+    onDelete: "set null",
+  }),
   provider: text("provider").$type<"gmail">().notNull().default("gmail"),
   providerMessageId: text("provider_message_id").notNull().unique(),
   providerThreadId: text("provider_thread_id"),
@@ -388,8 +529,12 @@ export const inboxMessages = sqliteTable("inbox_messages", {
     .notNull(),
   summary: text("summary").notNull(),
   matchConfidence: integer("match_confidence").notNull().default(0),
-  classificationConfidence: integer("classification_confidence").notNull().default(0),
-  needsReview: integer("needs_review", { mode: "boolean" }).notNull().default(true),
+  classificationConfidence: integer("classification_confidence")
+    .notNull()
+    .default(0),
+  needsReview: integer("needs_review", { mode: "boolean" })
+    .notNull()
+    .default(true),
   receivedAt: integer("received_at", { mode: "timestamp" }).notNull(),
   reviewedAt: tsNullable("reviewed_at"),
   createdAt: ts("created_at"),
@@ -405,7 +550,9 @@ export type InsertInboxMessage = typeof inboxMessages.$inferInsert;
 // existing per-platform dispatch. See DECISIONS.md D-020.
 export const watchedCompanies = sqliteTable("watched_companies", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   /** Catalog slug — must match an entry in companies-catalog.yaml at scan time. */
   companySlug: text("company_slug").notNull(),
   addedAt: ts("added_at"),
@@ -413,61 +560,6 @@ export const watchedCompanies = sqliteTable("watched_companies", {
 
 export type WatchedCompany = typeof watchedCompanies.$inferSelect;
 export type InsertWatchedCompany = typeof watchedCompanies.$inferInsert;
-
-// ── briefings ────────────────────────────────────────────────────────
-// NotebookLM Studio outputs (audio overviews, infographics, text reports, etc.)
-// generated for the user. One row per generation; the row is created in "pending"
-// state, flipped to "generating" when the Python subprocess kicks off, and
-// resolved to "complete" or "failed" once the artifact is downloaded.
-export const briefings = sqliteTable("briefings", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  briefingType: text("briefing_type")
-    .$type<
-      | "daily_coach_audio"
-      | "weekly_market_audio"
-      | "interview_prep_audio"
-      | "resume_critique_audio"
-      | "career_debate_audio"
-      | "daily_dashboard_infographic"
-      | "funnel_infographic"
-      | "application_status_infographic"
-      | "pre_application_brief"
-      | "monthly_retrospective"
-      | "career_mindmap"
-      | "interview_flashcards"
-      | "interview_quiz"
-    >()
-    .notNull(),
-  status: text("status")
-    .$type<"pending" | "generating" | "complete" | "failed">()
-    .notNull()
-    .default("pending"),
-  title: text("title").notNull(),
-  // Optional foreign reference for per-job briefings (interview prep, pre-application brief).
-  // Stored as nullable FK to applied_jobs OR tracked_jobs — we keep both raw IDs.
-  relatedAppliedJobId: integer("related_applied_job_id"),
-  relatedTrackedJobId: integer("related_tracked_job_id"),
-  // NotebookLM bookkeeping (so we can revisit a notebook or task if needed)
-  notebookId: text("notebook_id"),
-  taskId: text("task_id"),
-  // The markdown context we uploaded as a NotebookLM source, kept for audit + replay
-  contextSnapshot: text("context_snapshot"),
-  // Text outputs (mind map, monthly retrospective, flashcards, quiz, pre-application brief)
-  textContent: text("text_content"),
-  // Media artifacts (audio overviews, infographics)
-  mediaPath: text("media_path"),
-  mediaType: text("media_type").$type<"audio" | "image" | "video" | null>(),
-  // Generation metadata: studio config that was used, prompt file name, etc.
-  metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>(),
-  errorMessage: text("error_message"),
-  createdAt: ts("created_at"),
-  startedAt: tsNullable("started_at"),
-  completedAt: tsNullable("completed_at"),
-});
-
-export type Briefing = typeof briefings.$inferSelect;
-export type InsertBriefing = typeof briefings.$inferInsert;
 
 // ── scraper_health ───────────────────────────────────────────────────
 // One row per supported scraper platform. Updated by every scrape attempt

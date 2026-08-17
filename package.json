@@ -1,7 +1,7 @@
 {
   "name": "job-matrix",
   "version": "0.2.0-beta",
-  "description": "Local-first, single-user job-search dashboard you run on your own machine with your own AI provider key.",
+  "description": "Agent-friendly job search and application tracking with optional bring-your-own AI.",
   "type": "module",
   "license": "PolyForm-Noncommercial-1.0.0",
   "author": "anitacigawet",

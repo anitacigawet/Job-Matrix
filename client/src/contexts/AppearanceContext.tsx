@@ -18,16 +18,6 @@ export interface Appearance {
   glass: number;
   density: Density;
   nav: NavLayout;
-  /**
-   * Master toggle for NotebookLM-powered features. When false, the
-   * DailyBriefingStrip on the dashboard, the Briefings entry in the
-   * TopNav, the NotebookLM auth + auto-briefing sub-sections in
-   * Settings, and the per-job Briefings dropdown on applied cards
-   * all disappear. The /briefings route stays reachable by direct
-   * URL so users keep access to any briefings they already
-   * generated — only the surfaces that nudge new generation hide.
-   */
-  briefings: boolean;
 }
 
 export interface AccentPalette {
@@ -59,7 +49,9 @@ export const ACCENT_PALETTES: Record<AccentKey, AccentPalette> = {
   },
 };
 
-export const ACCENT_KEYS: AccentKey[] = Object.keys(ACCENT_PALETTES) as AccentKey[];
+export const ACCENT_KEYS: AccentKey[] = Object.keys(
+  ACCENT_PALETTES
+) as AccentKey[];
 
 const STORAGE_KEY = "jobmatrix.appearance";
 
@@ -69,7 +61,6 @@ export const APPEARANCE_DEFAULTS: Appearance = {
   glass: 50,
   density: "comfortable",
   nav: "top",
-  briefings: true,
 };
 
 function loadAppearance(): Appearance {
@@ -108,7 +99,10 @@ function applyAppearance(a: Appearance) {
 
   const accent = a.accent[theme] ?? "aurora";
   r.setAttribute("data-accent", accent);
-  r.setAttribute("data-density", a.density === "compact" ? "compact" : "comfortable");
+  r.setAttribute(
+    "data-density",
+    a.density === "compact" ? "compact" : "comfortable"
+  );
   r.setAttribute("data-nav", a.nav === "sidebar" ? "sidebar" : "top");
 
   // Glass slider 0..100 — same ramp as the prototype
@@ -124,11 +118,20 @@ function applyAppearance(a: Appearance) {
     const alphaPct = 95 - (intensity / 100) * 45;
     r.style.setProperty("--glass-blur", `${blurPx.toFixed(1)}px`);
     if (theme === "light") {
-      r.style.setProperty("--glass-bg", `oklch(1 0 0 / ${alphaPct.toFixed(1)}%)`);
+      r.style.setProperty(
+        "--glass-bg",
+        `oklch(1 0 0 / ${alphaPct.toFixed(1)}%)`
+      );
     } else {
-      r.style.setProperty("--glass-bg", `oklch(0.21 0.012 265 / ${alphaPct.toFixed(1)}%)`);
+      r.style.setProperty(
+        "--glass-bg",
+        `oklch(0.21 0.012 265 / ${alphaPct.toFixed(1)}%)`
+      );
     }
-    r.style.setProperty("--glass-haze-opacity", `${((intensity / 100) * 0.95).toFixed(2)}`);
+    r.style.setProperty(
+      "--glass-haze-opacity",
+      `${((intensity / 100) * 0.95).toFixed(2)}`
+    );
   }
 }
 
@@ -138,7 +141,6 @@ export interface AppearancePatch {
   glass?: number;
   density?: Density;
   nav?: NavLayout;
-  briefings?: boolean;
 }
 
 interface AppearanceContextValue {
@@ -147,7 +149,9 @@ interface AppearanceContextValue {
   reset: () => void;
 }
 
-const AppearanceContext = createContext<AppearanceContextValue | undefined>(undefined);
+const AppearanceContext = createContext<AppearanceContextValue | undefined>(
+  undefined
+);
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
   const [value, setValue] = useState<Appearance>(() => loadAppearance());
@@ -162,7 +166,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       if (e.key !== STORAGE_KEY || !e.newValue) return;
       try {
         const parsed = JSON.parse(e.newValue) as Partial<Appearance>;
-        setValue((prev) => ({
+        setValue(prev => ({
           ...prev,
           ...parsed,
           accent: { ...prev.accent, ...(parsed.accent ?? {}) },
@@ -175,8 +179,8 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const set = useCallback<AppearanceContextValue["set"]>((patch) => {
-    setValue((prev) => {
+  const set = useCallback<AppearanceContextValue["set"]>(patch => {
+    setValue(prev => {
       const { accent: accentPatch, ...rest } = patch;
       return {
         ...prev,

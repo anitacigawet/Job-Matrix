@@ -11,8 +11,8 @@ work through the same interface you see while leaving final decisions with you.
 
 ![A populated Job Matrix dashboard showing its scan, filter, and scoring workflow beside ranked job matches](docs/screenshots/dashboard.png)
 
-*The dashboard turns a pile of listings into a visible workflow: search, filter,
-score, review, and apply.*
+_The dashboard turns a pile of listings into a visible workflow: search, filter,
+score, review, and apply._
 
 > **Beta:** Job Matrix is usable today, but it is still a self-hosted developer
 > release. Job sources and AI providers can change independently of the app, so
@@ -64,9 +64,9 @@ If any of that sounds familiar, keep reading.
 
 ![Job Matrix welcome screen explaining search, fit, human approval, and local data before setup](docs/screenshots/welcome.png)
 
-*The front door explains the bargain before asking for anything: Job Matrix does
+_The front door explains the bargain before asking for anything: Job Matrix does
 the repetitive work, your records stay local, and the consequential choices stay
-with you.*
+with you._
 
 ---
 
@@ -101,9 +101,9 @@ ability to inspect, interrupt, or decide. The longer argument lives in
 
 ![The guided application dialog showing saved answers, a final-submit guardrail, and explicit review instructions](docs/screenshots/guided-application.png)
 
-*The guided application packet is the clearest expression of the idea: saved
+_The guided application packet is the clearest expression of the idea: saved
 answers are visible, missing answers remain questions, and final submission is a
-human approval boundary.*
+human approval boundary._
 
 ---
 
@@ -117,8 +117,8 @@ human approval boundary.*
 
 - [Node.js](https://nodejs.org/) 22 or newer.
 - [pnpm](https://pnpm.io/installation) 10 or newer.
-- [Python](https://www.python.org/downloads/) 3.9 or newer for JobSpy sources
-  and optional NotebookLM features.
+- [Python](https://www.python.org/downloads/) 3.9 or newer for optional JobSpy
+  sources.
 - Optional credentials for the job sources and AI provider you choose. The app
   explains each one under Settings.
 
@@ -168,26 +168,26 @@ telemetry** for what this installation has actually observed.
 
 ## Data and privacy
 
-Job Matrix is local-first, not offline-only.
+The current repository build is local-first, not offline-only. It is the
+transparent development version of the planned hosted product.
 
 **Stored on your computer:** your profile, search preferences, listings, scan
-history, application records, uploaded résumé, provider settings, and generated
-briefings. The local server listens only on `127.0.0.1`.
+history, application records, uploaded résumé, and provider settings. The local
+server listens only on `127.0.0.1`.
 
 **Sent when you ask for it:**
 
 - Search terms and locations go to the job sources you enable.
 - Listing text and relevant profile criteria go to your selected AI provider
   when you request filtering or scoring.
-- Résumé text goes to that provider only when you request extraction or critique.
+- Résumé text is included when you explicitly prepare a guided application
+  packet.
 - A plausibly job-related email may go to the selected provider when local rules
   cannot classify it confidently. Unrelated mail is discarded before that step.
-- Requested briefing context goes to Google NotebookLM when you enable or
-  generate a briefing.
 - Matched response details go to Slack only when you configure Slack alerts.
 
-If you want the narrowest network footprint, leave AI, NotebookLM, Gmail, Slack,
-and credentialed sources disabled and use only sources you are comfortable
+If you want the narrowest network footprint, leave AI, Gmail, Slack, and
+credentialed sources disabled and use only sources you are comfortable
 contacting.
 
 ---
@@ -203,7 +203,6 @@ contacting.
   pipeline tracking, timeline, analytics, and CSV export.
 - Optional read-only Gmail response monitoring, Google Voice email recognition,
   and Slack alerts.
-- Optional NotebookLM audio, visual, and text briefings.
 - Dark/light appearance controls, responsive navigation, keyboard shortcuts,
   and documented semantic hooks for browser agents.
 
@@ -215,8 +214,6 @@ contacting.
   acting.
 - Response monitoring is not a general email client and may require review when
   classification is uncertain.
-- NotebookLM integration depends on an unofficial local bridge and a live Google
-  session, so it is more experimental than the core search and tracking flow.
 
 ---
 

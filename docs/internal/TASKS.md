@@ -9,7 +9,7 @@ implementation item exists under `ACTIVE`, the operator's “continue” cue pic
 it up. Items labeled operator-gated require the stated live credentials,
 provider interaction, or operator judgment.
 
-Last updated: 2026-08-12.
+Last updated: 2026-08-16.
 
 ---
 
@@ -65,7 +65,7 @@ Opened 2026-05-18 in response to operator-greenlit tiered-source plan. See `DECI
 - [x] **D13.4** — `searchJobs()` now does cross-tier dedupe at the merge step. Key is `(title, company, city)` lowercased+trimmed; first occurrence wins, which means Tier-1 (Adzuna) survives over JobSpy twins because adapters run before the JobSpy subprocess in the fan-out order. Degenerate keys (missing title or company) are passed through to avoid collapsing distinct jobs into one bucket. `[Source Dispatch] Cross-tier dedupe dropped indeed: N` log line surfaces the activity. Defaults updated: `getEnabledPlatforms` now returns `["indeed", "linkedin", "adzuna"]` instead of `["indeed", "glassdoor", "linkedin"]` — drops the D-014 "not operable" Glassdoor and adds Tier-1 Adzuna. `updatePlatforms` Zod enum extended to accept `"adzuna"` + `"google"`.
 - [x] **D13.5** — Adzuna card added to the Platforms page (first card, before the JobSpy lineup). New `tier: 1 | 2` field on `PlatformConfig` drives a "TIER 1 · API" emerald badge for Adzuna vs a "TIER 2 · SCRAPER" slate badge for the JobSpy platforms. When Adzuna is toggled on but `dataSources.adzuna.configured === false`, an amber inline callout surfaces with a "Configure in Settings →" CTA (`configure-adzuna-credentials` hook → `setLocation("/settings")`). When configured, a green callout reads "Credentials configured (from env var | settings file)". `localEnabled` default updated to match the new backend default.
 - [x] **D13.6** — Docs sweep landed. README "Scraping scope" callout reframed as "Data source coverage" with separate Tier 1 / Tier 2 sections. SCRAPER_TRIAGE.md gained a 2026-05-19 preamble pointing at D-019. AGENT_HOOKS_REFERENCE.md extended with `save-adzuna-credentials` / `clear-adzuna-credentials` / `test-adzuna-credentials` / `configure-adzuna-credentials` actions, `data-source-{id}` / `data-source-{id}-status` / `platform-needs-credentials-{platform}` / `platform-credentials-ok-{platform}` status hooks, and `adzuna-app-id` / `adzuna-app-key` input hooks. Concierge prompt got a one-line Adzuna mention. CHANGELOG entry written for the phase. Smoke tests: `pnpm check` clean; `pnpm test` clean except for an unrelated pre-existing failure in `client/src/lib/sanitize.test.ts` (XSS-prevention test wraps `<img>` in `<p>` — last touched in `e12d698` before Phase 13; flagged as a follow-up task).
-- [ ] **D13.7** — Phase 13 exit review with operator. *(operator)* Run a real scan against operator's profile + an Adzuna search radius they care about. Confirm rows merge cleanly, dedupe doesn't drop legit listings, health card shows Adzuna green. If satisfied, advance to D13.8+.
+- [ ] **D13.7** — Phase 13 exit review with operator. _(operator)_ Run a real scan against operator's profile + an Adzuna search radius they care about. Confirm rows merge cleanly, dedupe doesn't drop legit listings, health card shows Adzuna green. If satisfied, advance to D13.8+.
 
 ### Extended Phase 13 — additional search-aggregator sources (added 2026-05-19)
 
@@ -82,6 +82,7 @@ Operator clarified that "all Tier 1 platforms" was the original intent of Phase 
 **UI propagation:** `getDataSourcesForApi()` returns a `fields[]` array per source so `DataSourcesCard.tsx` can render per-source forms dynamically rather than hard-coding Adzuna's shape. Platforms page gets cards for the 5 new sources; tier badge ("TIER 1 · API") is already in place. AGENT_HOOKS_REFERENCE extended with per-source action and input hooks.
 
 **Operator-blocking dependencies:**
+
 - D13.8 needs the operator's USAJobs API key + email — can ship code against a stub until then.
 - D13.9 needs Jooble partner-key approval — same, ship code first.
 
@@ -89,7 +90,7 @@ Operator clarified that "all Tier 1 platforms" was the original intent of Phase 
 
 ## COMPLETED — Phase 14: Per-Company ATS Sources + Companies Catalog (shipped 2026-05-19)
 
-The Tier-1 work in Phase 13 covered every search-aggregator worth integrating. Phase 14 added the second shape of Tier-1 source: **per-company ATS feeds** routed through a generic `JobBoardAdapter`, driven by a catalog at `companies-catalog.yaml`. *(Originally scoped as community-contributable by PR; D-022 later made the catalog maintainer-curated — catalog PRs are not accepted.)* Three ATSes shipped (Greenhouse, Lever, Ashby); Workable deferred (a Workday adapter shipped later in Phase 16).
+The Tier-1 work in Phase 13 covered every search-aggregator worth integrating. Phase 14 added the second shape of Tier-1 source: **per-company ATS feeds** routed through a generic `JobBoardAdapter`, driven by a catalog at `companies-catalog.yaml`. _(Originally scoped as community-contributable by PR; D-022 later made the catalog maintainer-curated — catalog PRs are not accepted.)_ Three ATSes shipped (Greenhouse, Lever, Ashby); Workable deferred (a Workday adapter shipped later in Phase 16).
 
 See `DECISIONS.md` D-020 for the architectural call.
 
@@ -101,14 +102,16 @@ See `DECISIONS.md` D-020 for the architectural call.
 - [x] **D14.6** — `runGlobalSearch` does a second fan-out after the per-(title, location) loop: for each watched company, fetch jobs in parallel for each user title. Adapters run independently — different hosts, no rate-limit collision. `saveTrackedJob` now accepts per-company `platform` strings (`gh:anthropic`, `lever:netlify`, `ashby:posthog`) verbatim — each company is its own dedup namespace in `tracked_jobs`. Company display names patched in from the catalog before save (adapters return the raw `boardId` slug).
 - [x] **D14.5** — New `WatchedCompaniesPanel` component, mounted as the 5th sub-tab on `/preferences` (Profile · Job titles · Résumé · Presets · **Companies**). Searchable input + tag-filter chips + per-row checkbox UI. Empty state nudges contributors toward CONTRIBUTING.md. ATS-coloured badges (Greenhouse green, Lever violet, Ashby rose).
 - [x] **D14.7** — `CONTRIBUTING.md` at the repo root. "Add a company" flow with verification `curl` commands per ATS, what we won't accept, PR title/body convention. Also covers bug reports + general code contributions.
-- [ ] **D14.9** — Phase 14 exit review with operator. *(operator)* Run a real scan with at least one watched company configured, confirm the per-company jobs land in `tracked_jobs` with `site: "gh:anthropic"`-style values, confirm the AI filter still gates them correctly. If satisfied, close Phase 14.
+- [ ] **D14.9** — Phase 14 exit review with operator. _(operator)_ Run a real scan with at least one watched company configured, confirm the per-company jobs land in `tracked_jobs` with `site: "gh:anthropic"`-style values, confirm the AI filter still gates them correctly. If satisfied, close Phase 14.
 
 **Cross-cutting follow-ups (not blocking phase close):**
+
 - Workable adapter — public API too fragmented; add when a specific use case forces it.
 - Per-company health telemetry — only worth building if real failure patterns surface.
 - CI hook to validate new catalog PRs (run the verification `curl` automatically).
 
 **Operator-blocking dependencies inside Phase 13:**
+
 - D13.3 needs the operator to sign up for an Adzuna API account at [developer.adzuna.com](https://developer.adzuna.com/) (free hobbyist tier, no credit card) and surface `app_id` + `app_key`. Can ship D13.1 / D13.2 against a stub before that happens.
 - D13.7 is operator-only by nature.
 
@@ -121,13 +124,13 @@ Opened 2026-05-20. Curated static-data starter packs of job titles, picked by wo
 **Exit criterion:** Quick Fill is reachable from both Preferences → Job titles AND Onboarding step 2; selecting a category + level + clicking Apply adds new titles to `user_job_titles` without disturbing existing entries; all four categories (Introvert-friendly · Extrovert-friendly · Hands-on · Entry-level / no degree) render with 8 entries × 3 levels; AGENT_HOOKS_REFERENCE updated; `pnpm check` and `pnpm test` clean.
 
 - [x] **D15.1** — Architectural call + docs scaffold. D-021 in DECISIONS.md (done in this commit). Phase 15 entry in this file (done). ROADMAP.md "Where we are" updated with Phase 15.
-- [x] **D15.2** — Static data file at `shared/work-style-suggestions.ts`. Four categories × three levels × eight titles each + per-level descriptions framed by *the work*, not the person. Titles chosen for actual search-engine hits (Indeed / Adzuna / LinkedIn) — no whimsical entries like "lighthouse keeper."
+- [x] **D15.2** — Static data file at `shared/work-style-suggestions.ts`. Four categories × three levels × eight titles each + per-level descriptions framed by _the work_, not the person. Titles chosen for actual search-engine hits (Indeed / Adzuna / LinkedIn) — no whimsical entries like "lighthouse keeper."
 - [x] **D15.3** — `client/src/components/WorkStyleQuickFill.tsx`. Reusable dialog: category picker (4 cards) → level slider (Low/Medium/High) → checkable title list (pre-checked) → Apply button. Case-insensitive dedup against existing `user_job_titles`. The dialog is the same component whether triggered from Preferences or rendered inline in Onboarding step 2.
 - [x] **D15.4** — Wire it up:
-   - Preferences → Job titles sub-tab gets a "Quick fill ▾" button at the top of the manage-titles card. Opens the dialog.
-   - Onboarding step 2 (Target Positions) gets a quiet "Need ideas? Quick fill" link/button that opens the same dialog. Clear Skip path so users who want to type their own can keep going.
+  - Preferences → Job titles sub-tab gets a "Quick fill ▾" button at the top of the manage-titles card. Opens the dialog.
+  - Onboarding step 2 (Target Positions) gets a quiet "Need ideas? Quick fill" link/button that opens the same dialog. Clear Skip path so users who want to type their own can keep going.
 - [x] **D15.5** — AGENT_HOOKS_REFERENCE.md updates (5 new hooks: `open-work-style-quickfill`, `select-work-style-category-{id}`, `set-work-style-level-{level}`, `toggle-suggested-title-{slug}`, `apply-work-style-suggestions`). `pnpm check` + `pnpm test` clean. Commit `e56e63e`.
-- [ ] **D15.6** — Operator smoke test. *(operator)* Open the app fresh, click Quick fill in Preferences, try each of the four categories at each level, Apply, confirm the merge behaviour (existing untouched, new ones appended). Repeat the flow inside Onboarding. If satisfied, close Phase 15.
+- [ ] **D15.6** — Operator smoke test. _(operator)_ Open the app fresh, click Quick fill in Preferences, try each of the four categories at each level, Apply, confirm the merge behaviour (existing untouched, new ones appended). Repeat the flow inside Onboarding. If satisfied, close Phase 15.
 
 ---
 
@@ -140,19 +143,45 @@ The `catalog-builder/` sweep (Batches 1–5) verified ~650 companies on Greenhou
 - [x] **D16.3** — Schema extension. `shared/companies-catalog-schema.ts`: `"workday"` added to `ATS_IDS`; optional `host` + `site` fields required-when-Workday via `superRefine`; `ATS_ENDPOINTS` signature changed to take entry fields (was unused, safe). Greenhouse/Lever/Ashby entries unchanged.
 - [x] **D16.4** — `server/sources/ats/workday.ts` adapter + dispatcher wiring in `base.ts` (`JobBoardInput` gains `host`/`site`; `fetchCompanyJobs` threads them through). Server-side search, pagination, best-effort location + fuzzy-date parsing, empty description (documented limitation). End-to-end smoke green against Target (real jobs, resolving URLs).
 - [x] **D16.5** — 11 verified Workday seed entries in `companies-catalog.yaml` (catalog now 661). Workday amber badge in `WatchedCompaniesPanel`. `merge.mjs` + `promote-to-live.mjs` future-proofed to emit/validate/sort `host`+`site` for the upcoming population sweep. `pnpm check` clean. CHANGELOG + DECISIONS + this ledger updated.
-- [ ] **D16.6** — Population sweep for the remaining ~175 logged Workday companies. *(follow-on)* Same catalog-builder agent pattern, but every entry needs live cxs verification (the naive derivation only works ~60% of the time). Not started — a discrete future fan-out.
+- [ ] **D16.6** — Population sweep for the remaining ~175 logged Workday companies. _(follow-on)_ Same catalog-builder agent pattern, but every entry needs live cxs verification (the naive derivation only works ~60% of the time). Not started — a discrete future fan-out.
 
 **Cross-cutting follow-up:** the catalog is maintainer-curated, so `CONTRIBUTING.md`'s "add a company" flow, the README "community-maintained catalog" line, and the Preferences → Companies "Add it via PR" CTA were all stale. De-community-fied in the 2026-06-13 stance-alignment pass after the open-source decision (D-023) confirmed the direction.
 
 ---
 
-## ACTIVE — operator-gated phase (carried over)
+## ACTIVE — Hosted product conversion
 
-The forward-looking phase below needs actions from the operator, not Claude. Don't pick it up autonomously.
+D-028 retires the NotebookLM experiment and supersedes the local-only product
+boundary. The conversion order is architectural: do not expose the current
+unauthenticated server publicly between these steps.
 
-- [ ] **Phase 9 — Briefings live validation** (D9.3 / D9.4 / D9.5 / D9.6 / D9.10). Listen-tests + prompt iteration for daily-coach / weekly-market / infographic / monthly-retrospective. Need the operator to actually run the generations and react. Full chunk list preserved further down under DEFERRED.
+- [x] **H1 — Retire NotebookLM.** Remove its UI, routes, scheduler, Python
+      bridge, prompts, setup dependencies, and active documentation. Preserve the
+      final experimental edition in Git and leave existing local artifacts intact.
+- [ ] **H2 — Establish accounts and tenant isolation.** Replace the constant
+      local user with authenticated account/session resolution and require an
+      ownership predicate on every user-data read and write.
+- [ ] **H3 — Move persistence to hosted storage.** Adopt a managed relational
+      database for account data and private object storage for résumé assets, with
+      migrations, backup, export, and account deletion semantics.
+- [ ] **H4 — Add the per-user secret vault.** Encrypt provider keys and optional
+      integration credentials with a server-managed key boundary; mask reads,
+      prevent logging, and support validation, rotation, and deletion.
+- [ ] **H5 — Rebuild scheduled work.** Move scans and AI processing to an
+      idempotent per-user queue with cancellation, progress, retry limits, and
+      provider/source rate controls.
+- [ ] **H6 — Approve the hosted source set.** Keep sources whose terms and API
+      design permit server-side use; remove centrally operated best-effort
+      scrapers unless a source grants permission. Document the result per source.
+- [ ] **H7 — Redesign local integrations.** Replace loopback Gmail OAuth,
+      desktop-only notifications, filesystem reset/debug controls, and local token
+      storage with hosted-safe equivalents or retire them.
+- [ ] **H8 — Threat model and public launch gate.** Add abuse controls, audit
+      events, privacy/export/delete flows, secret-incident procedures, monitoring,
+      and deployment checks before attaching a public domain.
 
-*(Phase 12 — Legal & Commercial Pre-flight — was parked here; it is now **closed** by `DECISIONS.md` D-023, resolved as open source. See the closed-out section below.)*
+Phase 9 briefing validation is retired by D-028. Its historical ledger remains
+below only as a record of the previous direction.
 
 ---
 
@@ -161,12 +190,15 @@ The forward-looking phase below needs actions from the operator, not Claude. Don
 A two-day push that replaced the per-page chrome with a global app-shell, ported every long-lived page to the new SubNav system, ran a code audit + cleanup pass, and added two pieces of cross-cutting polish (master briefings toggle, magnetic-strip SubNav). Decision rationale lives in `DECISIONS.md` D-015 through D-018; this section is the chunk ledger.
 
 ### Shell + design tokens (ph1)
+
 - [x] **DR.ph1** — New `client/src/App.tsx` wraps the route tree in `<AppearanceProvider>` + `<AppShell>` (TopNav + SubNav + page-content + footer). New `client/src/contexts/AppearanceContext.tsx` (theme / per-theme accent / glass / density / nav / briefings — persisted in `localStorage["jobmatrix.appearance"]`). New components: `TopNav`, `SubNav` + `SubNavProvider`, `AppearancePopover` + `AppearanceTrigger` + `SettingsAppearance`. `index.css` gained the design tokens, primitives (`.card`, `.btn-*`, `.badge-*`, `.chip`, `.stat`, `.field`, `.empty`, etc.), and the layout classes for the dashboard 3-zone grid + the workflow rail. Commits `36dec24`, plus the drag-to-scrub accent picker (`aa6946d`) and glass slider gradient fix (`005395e`).
 
 ### Dashboard port (ph2)
+
 - [x] **DR.ph2** — `TrackedJobsPersonalized.tsx` restructured into `.dash-grid` (rail + main). New components: `WorkflowRail` (consolidates Scan → Filter → Score chain + the Cleanup affordance), `DailyBriefingStrip` (4 states — empty / generating / failed / fresh — for the daily-coach surface), `StatusStrip` (5 cells: Scanned / Eligible / Filtered out / Scored / Awaiting score). Removed the redundant per-page nav-pill row (TopNav owns nav now), the duplicated AI-Filtering timestamp banner, two dead button refs, the orange "(!) Set Up Profile" pill (SearchCriteriaCard already surfaces it). Operation Progress promoted to a full-width banner above the grid. Job cards re-styled: emoji meta row (📍 / 💵 / 💼), hover-date tooltip on the relative-time badge, platform-branded Apply buttons (single + multi-platform popover with an oil-spill gradient), "Eligible Match" + reason line collapsed into "Passed all filters" + confidence badge. Commit `44da555` plus the polish series `6807e3e` / `62a9673` / `c660fe2` / `1c11120` (markdown renderer for descriptions).
 
 ### SubNav ports (ph3a–ph3f)
+
 - [x] **DR.ph3a** — Settings reads `useSubNav()` and renders one section at a time (LLM / Notif / Auto-scan / NotebookLM / Appearance). Internal 3-tab shadcn `<Tabs>` strip retired. Bottom "Back to Dashboard" button retired. Commit `800c556`.
 - [x] **DR.ph3b** — Briefings split into Generate vs Inbox tabs; empty-state copy updated to point at the Generate tab. Commit `6fb6e9b`.
 - [x] **DR.ph3c** — Applied reshapes per tab: `all` is the default list, `pipeline` shows the status grid larger with click-to-filter-and-jump-to-All behavior, `timeline` auto-expands every job's timeline panel. Commit `06e2c73`.
@@ -175,14 +207,17 @@ A two-day push that replaced the per-page chrome with a global app-shell, ported
 - [x] **DR.ph3f** — Platforms split into Sources (toggle cards + System Overview) and Health (ScraperHealthCard). Gradient-text "Data Sources" H1 banner + redundant "Enter Dashboard" button removed in favour of a standard PageHeader. Commit `652ceb2`.
 
 ### Audit + cleanup
+
 - [x] **DR.audit** — Code audit caught five real bugs (null platform crash in PlatformApplyButton, silent fetch error in DailyBriefingStrip, empty-prose fallback in rolePreview, Date|string ambiguity in WorkflowRail, etc.). All fixed in commit `e12d698`.
 - [x] **DR.cleanup** — Onboarding bypasses the shell (no TopNav exposure mid-flow); PageHeader's `backHref` default flipped to `null` so 7 sub-pages stop rendering a redundant "Back to Dashboard" arrow; `ThemeContext` + `ThemeToggle` retired (now no-op shims with no callers); dead state purged from `TrackedJobsPersonalized.tsx` (-128 lines: `scanProgress`, `isRefreshingStats`, `debugMode*`, `personalizedScan`, `aiAnalysisTest`, `debugStage1/2/3`); dead CSS purged from `index.css` (-178 lines: `.score*`, `.kbd`, `.skel`, `.empty`, `.toast-*`, `.dialog`, `.pipeline*`, `.provider-tab*`, `.sidenav`, `.terminal*`); 13 undocumented agent hooks caught up in AGENT_HOOKS_REFERENCE. Commits `e68b054`, `2ef62d1`, `41ffd54`, `9f39617`.
 
 ### Master briefings toggle + presets move
+
 - [x] **DR.briefings-toggle** — `briefings: boolean` added to AppearanceContext (default true). When off, the DailyBriefingStrip, TopNav "Briefings" entry, Settings "NotebookLM auth" sub-tab, Settings auto-scan briefings block, and per-applied-card JobBriefingMenu all hide. `BriefingsBackendSync` watches the falling edge and fires `settings.updateAutoScan({ autoDailyBriefing: false, autoWeeklyBriefing: false })` so the server cron stops too. The `/briefings` route stays reachable by direct URL so previously-generated briefings remain viewable. Commits `e99c8db` + `fc0fe06` (the latter also added `mx-auto` to 6 page wrappers since Tailwind v4's `.container` doesn't auto-center).
 - [x] **DR.presets-into-prefs** — Presets folded into `/preferences` as a 4th sub-tab (Profile · Job titles · Résumé · Presets). Standalone `/presets` route + TopNav entry retired. `SearchPresets.tsx` refactored: function renamed `SearchPresetsContent`, page wrapper stripped, "New Preset" CTA + intro paragraph inlined. JobPreferences renders it when `activeTab === "presets"`. Commit `e8fd274`.
 
 ### Magnetic-strip SubNav
+
 - [x] **DR.subnav-anchor** — SubNav anchors under the active TopNav tab via a CSS variable (`--subnav-anchor-x`) published by a layout effect in TopNav. Three iterations: first left-aligned under the active button (`d9f6092`), then text-to-text aligned (`b338593`), then the operator-requested final form where the SubNav row's geometric midpoint centers under the active button's midpoint (`b185c40`). 180ms ease transition + ResizeObserver for runtime item-changes (e.g. briefings toggle). See `DECISIONS.md` D-016.
 
 ---
@@ -214,13 +249,13 @@ Carries over the post-beta parking-lot items plus what surfaced during Phase 9 a
 - [x] **D11.14** — Lifted per-provider "Test Connection" out of the bottom button row (where it looked like a peer of Save) and placed it inline with the help text directly under the API Key Input. Now it visually belongs to the input it tests, not to the form's submit actions. Clear-key button now lives alone in its own right-aligned row. The header-level "Test active provider" (D11.1a) stays. Two clear depths: header = test what's saved on the active provider; per-sub-tab inline = test the typed-but-unsaved value of whichever provider you're editing. Tooltip on the per-sub-tab button reflects which behavior the current state triggers.
 - [x] **D11.15** — Added a "Go to Dashboard" outline button under each of the six Analytics empty-state cards (Pipeline, Top Companies, Job Types, Recent Scans, Match Score Distribution, Top Matches) — all six now bottom out at the dashboard, the universal "do the thing that populates this" surface. All six reuse the existing `go-to-dashboard` action hook; agents disambiguate by walking from the surrounding `empty-*` status. Added an "Edit in Preferences" outline button to the ConfigDebug page header, breaking the read-only dead-end the audit flagged. Reuses the existing `edit-preferences` action hook.
 - [x] **D11.16a** — Small audit follow-ups bundled (three quick wins from §C "Low"):
-  - **Onboarding step 1**: moved the "How do you want to start?" mode selector + the conditional auto-fill upload widget *above* the Continue button. Continue's label depends on the mode, so the mode now precedes the action.
+  - **Onboarding step 1**: moved the "How do you want to start?" mode selector + the conditional auto-fill upload widget _above_ the Continue button. Continue's label depends on the mode, so the mode now precedes the action.
   - **JobPreferences**: promoted the Résumé textarea out of "Skills & Experience" into its own Section 3.5 card (`resume-text-section` hook + FileText icon + "Optional / Required for the Resume Critique briefing" badge). Previously buried; the Resume Critique briefing was undiscoverable from Preferences.
   - **Briefings**: dropped the manual `refresh-briefings-list` button. The list query auto-polls every 8s while anything is generating and invalidates after every mutation — no flow requires manual refresh. `RefreshCw` import dropped. AGENT_HOOKS_REFERENCE entry removed.
 - [x] **D11.16b** — Standardized the page-header pattern (audit Theme 6 — five different patterns across 11 pages). New `client/src/components/PageHeader.tsx` is a 3-slot component (back-arrow icon left / title + subtitle middle / optional rightAction). Refactored 7 sub-pages to use it: Applied, Analytics, Presets, Settings, Preferences, ConfigDebug, Briefings. Hub-like pages left alone (Landing, Onboarding, Dashboard `/jobs`, Platforms — each has a unique entry-point header). Subtitle accepts ReactNode so callers can preserve their own attributes (e.g. Applied's `aria-live` + `data-agent-status="applied-jobs-count"` subtitle survives the refactor). All 7 pages now share one back-arrow style, one title-icon convention, and one right-action slot pattern. `back-to-dashboard` hook is now centralized in PageHeader; no AGENT_HOOKS_REFERENCE changes needed (the hook description was already generic).
 - [x] **D11.16c** — AI Debug Console is now collapsible (default collapsed). Was always-expanded, dumped the entire filtered-out list on every dashboard load, pushing the eligible-jobs section below the fold whenever scans had rejections. Now wrapped in a toggle button (`toggle-ai-debug-console` action hook + `aria-expanded`). When collapsed, a one-line hint (`ai-debug-console-collapsed` status) explains what's hidden; when expanded, the existing rich list renders inside `ai-debug-console`. State is ephemeral (resets to collapsed on reload) — it's a power-user diagnostic, not a workflow.
 - [x] **D11.16d** — Dashboard action-row consolidation. AI Match Scoring moved out of the secondary "Action Buttons Row" into the workflow chain in Row 1, so the dashboard now reads as one **Scan → (Arrow) → AI Filter → (Arrow) → Match Score** pipeline instead of the previous Scan→Filter chain with Match Scoring orphaned below it. New Arrow 2 (`hidden sm:flex` matching Arrow 1's mobile behavior; `isActive=fitScoring.isPending`, `isCompleted=Boolean(lastAIAnalysis?.completedAt)`). Database Cleanup gets its own row labeled "Maintenance" — it's admin / destructive, not workflow, so it doesn't belong in the chain. No new hooks; `execute-match-scoring` and `trigger-db-cleanup` keep their existing action names.
-- [ ] **D11.8** — Phase 11 exit review with operator. *(operator)*
+- [ ] **D11.8** — Phase 11 exit review with operator. _(operator)_
 
 ---
 
@@ -256,7 +291,7 @@ Currently Indeed is the only validated scraper. Glassdoor / LinkedIn / ZipRecrui
 - [x] **D10.6** — New `server/scrape-process-registry.ts` tracks every live Python scrape subprocess (flat Set — single-user app, one scan at a time). `searchJobs` registers on spawn, auto-unregisters on close/exit/error. `cancelOperation` now calls `killAllScrapeProcesses()` after marking the DB row — sends SIGTERM, schedules a SIGKILL fallback 3s later for stragglers. Cancel now reflects within seconds rather than waiting for the current JobSpy request to finish naturally.
 - [x] **D10.7** — README "Scraping scope" callout rewritten with the actual per-platform status from D10.1, plus a pointer to **Settings → Scraper Health** as the live source of truth. The internal `SCRAPER_TRIAGE.md` already serves the deeper "what to do when X breaks" purpose — collapsing the two would just create drift.
 - [~] **D10.9** — Deep-dive investigation of broken platforms (operator-requested follow-up). Inspected JobSpy source for Glassdoor and Google; re-tested all three with corrected params (`is_remote=True`, `google_search_term`, real cities). Conclusion: all three are unfixable from inside Job Matrix without forking JobSpy or violating D-002 (residential proxies for ZipRecruiter). Findings appended to `SCRAPER_TRIAGE.md` (2026-05-17 deep-dive update); formal classification in `DECISIONS.md` D-014. Visible "BROKEN" badge + inline reason now rendered on the three known-broken cards on the Platforms page so users don't waste cycles toggling them on.
-- [ ] **D10.8** — Phase 10 exit review with operator. *(operator)*
+- [ ] **D10.8** — Phase 10 exit review with operator. _(operator)_
 
 ---
 
@@ -270,29 +305,30 @@ The NotebookLM bridge ships with 13 prompts and full plumbing (commit `16657a8`)
 
 **Exit criterion:** at least one of each output kind (audio, infographic, text) has run end-to-end and the result is "good enough to ship." Daily Coach Audio is the keystone — that has to feel right.
 
-- [ ] **D9.1** — `notebooklm login` one-time auth on this host. *(operator)* The Settings page will open a browser; operator signs into Google, then clicks "I've signed in — confirm" in the UI. Once status flips to "Connected" we're unblocked. (Note: requires the venv to have `notebooklm-py` installed — first run of `pnpm setup` or `pnpm dev` on a fresh checkout self-heals the venv via `python_manager.ts`.)
+- [ ] **D9.1** — `notebooklm login` one-time auth on this host. _(operator)_ The Settings page will open a browser; operator signs into Google, then clicks "I've signed in — confirm" in the UI. Once status flips to "Connected" we're unblocked. (Note: requires the venv to have `notebooklm-py` installed — first run of `pnpm setup` or `pnpm dev` on a fresh checkout self-heals the venv via `python_manager.ts`.)
 - [x] **D9.2** — First live `daily_coach_audio` generation end-to-end. Ran 2026-05-17 17:35:21 → 17:42:51 UTC (**7m 30s**, faster than the 10–25 min expected band). Briefing ID 1, status flipped `generating` → `complete` cleanly with no error message. Output: `data/briefings/audio/daily_coach_audio_1_2026-05-17.mp4` (16.2 MB, ~216 kbps). Express static route at `/briefings-media/audio/...` serves it 200 OK with `Content-Type: video/mp4`. End-to-end pipeline confirmed: tRPC mutation → fire-and-forget Python subprocess → NotebookLM upload + Studio config + audio gen + download → DB write → static route → BriefingAudioPlayer (D11.4) for playback. **Note:** context fed to NotebookLM was thin (no recent listings / applications / scan history in the 24h window) — the briefing exercises the empty-context fallback path of the prompt rather than a typical-day output. A second generation with real context will be needed before D9.3's tone-iteration can land properly.
-- [ ] **D9.3** — Listen-test the daily coach audio + iterate the prompt. *(operator owns direction; Claude edits the file)* Likely two or three iterations to land the tone. Each iteration is its own atomic chunk — change the prompt, regenerate, listen, decide.
-- [ ] **D9.4** — Repeat the cycle for `weekly_market_audio`. *(both)* Iterate until the analytical tone lands.
-- [ ] **D9.5** — Generate at least one infographic (`daily_dashboard_infographic`) end-to-end. *(both)* Verify the BENTO_GRID style renders cleanly and the data is accurate; iterate the prompt if not.
-- [ ] **D9.6** — Generate at least one text output (`monthly_retrospective` is the easiest to evaluate). *(both)* Verify the long-form narrative reads well.
+- [ ] **D9.3** — Listen-test the daily coach audio + iterate the prompt. _(operator owns direction; Claude edits the file)_ Likely two or three iterations to land the tone. Each iteration is its own atomic chunk — change the prompt, regenerate, listen, decide.
+- [ ] **D9.4** — Repeat the cycle for `weekly_market_audio`. _(both)_ Iterate until the analytical tone lands.
+- [ ] **D9.5** — Generate at least one infographic (`daily_dashboard_infographic`) end-to-end. _(both)_ Verify the BENTO_GRID style renders cleanly and the data is accurate; iterate the prompt if not.
+- [ ] **D9.6** — Generate at least one text output (`monthly_retrospective` is the easiest to evaluate). _(both)_ Verify the long-form narrative reads well.
 - [x] **D9.7** — New `server/services/briefings-scheduler.ts` ticks hourly, fires `daily_coach_audio` after 23h and `weekly_market_audio` after 6.5 days for users with the toggles enabled. Two new user_settings columns (`auto_daily_briefing`, `auto_weekly_briefing`, both default off — opt-in to avoid burning quota) + matching toggles in Settings → Auto-Scan tab. Migration `0002_auto_briefings.sql`. Will not double-fire while a previous generation of the same type is still in `generating` state.
 - [x] **D9.8** — Added a "Briefings ▾" dropdown on each applied-job card (`client/src/components/JobBriefingMenu.tsx`). Menu items fire per-job NotebookLM generations: Pre-Application Brief, Interview Prep audio, Interview Flashcards, Interview Quiz. New hooks: `open-briefing-menu-{id}`, `generate-pre-application-brief-{id}`, `generate-interview-prep-{id}`, `generate-interview-flashcards-{id}`, `generate-interview-quiz-{id}`. (Tracked-jobs cards still need the menu — follow-up, not blocking.)
 - [x] **D9.9** — NotebookLM auth card now shows 7-day briefing activity: total count, breakdown by status (complete / in progress / failed), and recent failure messages so the user can spot rate-limit pressure before hitting it. New `notebooklm.recentActivity` tRPC endpoint backs the panel; refreshes once a minute.
-- [ ] **D9.10** — Phase 9 exit review with operator. *(operator)* Greenlight to advance to Phase 10, or refine Phase 9's scope if the briefings aren't shippable yet.
+- [ ] **D9.10** — Phase 9 exit review with operator. _(operator)_ Greenlight to advance to Phase 10, or refine Phase 9's scope if the briefings aren't shippable yet.
 
 ---
 
 ## CLOSED — Phase 12: Legal & Commercial Pre-flight (resolved 2026-06-13 — open source)
 
 **Closed by `DECISIONS.md` D-023: the project is open source, no commercialization.** This phase existed to decide the commercial-vs-OSS direction; that decision is made. The sub-items are moot:
+
 - IP-attorney consult — not needed for a non-commercial release with a standard scraping disclaimer.
 - License decision — MIT, permanent (no swap).
 - Pricing / distribution channel — N/A.
 - "Made by AI" framing — kept and made central (an OSS pre-flight item, not a commercial rewrite).
 - Trademark filing — not pursued.
 
-The OSS pre-flight that *replaces* this phase (scraping disclaimer, SECURITY.md, de-community-fy pass, clean-slate publish) is tracked via D-023 and the stance-alignment doc pass.
+The OSS pre-flight that _replaces_ this phase (scraping disclaimer, SECURITY.md, de-community-fy pass, clean-slate publish) is tracked via D-023 and the stance-alignment doc pass.
 
 ---
 
@@ -313,6 +349,7 @@ The Job Matrix project was inherited from an earlier Manus-based scaffold. This 
 ### 2026-05-15 — Pre-public-flip polish
 
 Concerns raised in `Concerns.txt` before any public flip:
+
 - README rewrite: ghost-jobs pain point, TOC, divider for skim-readers, `pnpm setup` framing (Python is required, not optional), new "For AI agents" section.
 - `pnpm setup` script (`scripts/setup.mjs`) replaces the manual Python venv + pip steps.
 - AGENT_MANIFEST.md retired as a public AI contract. Moved + rewritten as `docs/internal/AGENT_HOOKS_REFERENCE.md`. The tested concierge prompt at `docs/CONCIERGE_PROMPT.md` is the only thing AI agents are given.
@@ -327,6 +364,7 @@ Operator decided to evaluate commercial release rather than flip the repo public
 ### 2026-05-16 — NotebookLM briefings foundation
 
 Ported the NotebookLM bridge from Z-SPAN. Built the full Job Matrix consumer end-to-end:
+
 - `server/notebooklm/{client.py, auth_check.py, run.py}` + reference docs.
 - `briefings` DB table + `resume_text` on `user_profiles`, migration `0001_briefings_and_resume.sql`.
 - `server/services/briefings.ts` (fire-and-forget orchestrator) + `routers_briefings.ts` + `routers_notebooklm.ts`.

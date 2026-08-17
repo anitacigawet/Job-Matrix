@@ -95,7 +95,7 @@ function applyMigrations(db: SqlJsDatabase): void {
 
   const files = fs
     .readdirSync(migrationsDir)
-    .filter((f) => f.endsWith(".sql"))
+    .filter(f => f.endsWith(".sql"))
     .sort();
 
   for (const file of files) {
@@ -103,34 +103,41 @@ function applyMigrations(db: SqlJsDatabase): void {
     const sqlText = fs.readFileSync(path.join(migrationsDir, file), "utf-8");
     const statements = sqlText
       .split("--> statement-breakpoint")
-      .map((s) => s.trim())
+      .map(s => s.trim())
       .filter(Boolean);
 
     for (const stmt of statements) {
       try {
         db.run(stmt);
       } catch (err) {
-        console.error(`[Database] Failed migration ${file} on statement:\n${stmt}\n`, err);
+        console.error(
+          `[Database] Failed migration ${file} on statement:\n${stmt}\n`,
+          err
+        );
         throw err;
       }
     }
 
-    db.run("INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)", [
-      file,
-      Date.now(),
-    ]);
+    db.run(
+      "INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)",
+      [file, Date.now()]
+    );
     console.log(`[Database] Applied migration: ${file}`);
   }
 }
 
 /**
- * On every server boot, mark any "running" job scans and "generating" briefings
- * as failed — the in-memory process that was driving them is gone (server crash,
- * tsx watch reload, manual kill). Without this, the UI shows a phantom progress
- * card forever because the rows still claim to be in flight.
+ * On every server boot, mark any "running" job scans as failed because the
+ * in-memory process that was driving them is gone.
  */
 function cleanupOrphanedJobs(db: SqlJsDatabase): void {
-  const stale: { table: string; col: string; from: string; to: string; msg: string }[] = [
+  const stale: {
+    table: string;
+    col: string;
+    from: string;
+    to: string;
+    msg: string;
+  }[] = [
     {
       table: "job_scan_history",
       col: "status",
@@ -138,19 +145,12 @@ function cleanupOrphanedJobs(db: SqlJsDatabase): void {
       to: "failed",
       msg: "Orphaned scan — server restarted while in-flight",
     },
-    {
-      table: "briefings",
-      col: "status",
-      from: "generating",
-      to: "failed",
-      msg: "Orphaned briefing — server restarted while in-flight",
-    },
   ];
 
   for (const s of stale) {
     try {
       const before = db.exec(
-        `SELECT COUNT(*) FROM ${s.table} WHERE ${s.col} = '${s.from}'`,
+        `SELECT COUNT(*) FROM ${s.table} WHERE ${s.col} = '${s.from}'`
       );
       const count = before.length > 0 ? Number(before[0].values[0][0]) : 0;
       if (count === 0) continue;
@@ -159,10 +159,10 @@ function cleanupOrphanedJobs(db: SqlJsDatabase): void {
            SET ${s.col} = '${s.to}',
                error_message = '${s.msg}',
                completed_at = unixepoch()
-         WHERE ${s.col} = '${s.from}'`,
+         WHERE ${s.col} = '${s.from}'`
       );
       console.log(
-        `[Database] Cleaned up ${count} orphaned ${s.table} row(s) (status '${s.from}' → '${s.to}')`,
+        `[Database] Cleaned up ${count} orphaned ${s.table} row(s) (status '${s.from}' → '${s.to}')`
       );
     } catch (err) {
       // Table may not exist yet on a fresh DB; just skip.
@@ -176,7 +176,9 @@ export async function initDb(): Promise<void> {
 
   ensureDataDir();
   const SQL = await initSqlJs();
-  const buffer = fs.existsSync(ENV.databasePath) ? fs.readFileSync(ENV.databasePath) : null;
+  const buffer = fs.existsSync(ENV.databasePath)
+    ? fs.readFileSync(ENV.databasePath)
+    : null;
   const sqliteDb = buffer ? new SQL.Database(buffer) : new SQL.Database();
   sqliteDb.run("PRAGMA foreign_keys = ON");
   _sqliteDb = sqliteDb;
@@ -190,7 +192,9 @@ export async function initDb(): Promise<void> {
       const p = (params ?? []) as any[];
       const upper = queryStr.trimStart().toUpperCase();
       const isMutation =
-        upper.startsWith("INSERT") || upper.startsWith("UPDATE") || upper.startsWith("DELETE");
+        upper.startsWith("INSERT") ||
+        upper.startsWith("UPDATE") ||
+        upper.startsWith("DELETE");
 
       if (method === "run") {
         sqliteDb.run(queryStr, p);
@@ -222,7 +226,9 @@ export async function initDb(): Promise<void> {
 
 export async function getDb() {
   if (!_drizzle) {
-    throw new Error("Database not initialised — call initDb() at server startup before queries.");
+    throw new Error(
+      "Database not initialised — call initDb() at server startup before queries."
+    );
   }
   return _drizzle;
 }
@@ -267,7 +273,11 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -275,13 +285,22 @@ export async function getUserByOpenId(openId: string) {
 // INVITE CODES (kept for schema compatibility)
 // ============================================================================
 
-export async function getInviteCodeByCode(code: string): Promise<InviteCode | undefined> {
+export async function getInviteCodeByCode(
+  code: string
+): Promise<InviteCode | undefined> {
   const db = await getDb();
-  const result = await db.select().from(inviteCodes).where(eq(inviteCodes.code, code)).limit(1);
+  const result = await db
+    .select()
+    .from(inviteCodes)
+    .where(eq(inviteCodes.code, code))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function incrementInviteCodeUsage(code: string, userId: number): Promise<void> {
+export async function incrementInviteCodeUsage(
+  code: string,
+  userId: number
+): Promise<void> {
   const db = await getDb();
   await db
     .update(inviteCodes)
@@ -297,7 +316,9 @@ export async function incrementInviteCodeUsage(code: string, userId: number): Pr
 // USER PROFILES
 // ============================================================================
 
-export async function saveUserProfile(profile: InsertUserProfile): Promise<void> {
+export async function saveUserProfile(
+  profile: InsertUserProfile
+): Promise<void> {
   const db = await getDb();
   const existing = await db
     .select()
@@ -329,7 +350,9 @@ export async function saveUserProfile(profile: InsertUserProfile): Promise<void>
   }
 }
 
-export async function getUserProfile(userId: number): Promise<UserProfile | undefined> {
+export async function getUserProfile(
+  userId: number
+): Promise<UserProfile | undefined> {
   const db = await getDb();
   const result = await db
     .select()
@@ -345,12 +368,9 @@ export async function getActiveJobTitles(userId: number): Promise<string[]> {
     .select({ jobTitle: userJobTitles.jobTitle })
     .from(userJobTitles)
     .where(
-      and(
-        eq(userJobTitles.userId, userId),
-        eq(userJobTitles.isActive, 1),
-      ),
+      and(eq(userJobTitles.userId, userId), eq(userJobTitles.isActive, 1))
     );
-  return rows.map((row) => row.jobTitle);
+  return rows.map(row => row.jobTitle);
 }
 
 // ============================================================================
@@ -385,7 +405,7 @@ export type ScraperPlatform = (typeof SUPPORTED_SCRAPER_PLATFORMS)[number];
 export async function recordScraperAttempt(
   platform: ScraperPlatform,
   success: boolean,
-  error?: string | null,
+  error?: string | null
 ): Promise<void> {
   const db = await getDb();
   const now = new Date();
@@ -429,8 +449,8 @@ export async function recordScraperAttempt(
 export async function getScraperHealthSnapshot() {
   const db = await getDb();
   const rows = await db.select().from(scraperHealth);
-  const byPlatform = new Map(rows.map((r) => [r.platform, r]));
-  return SUPPORTED_SCRAPER_PLATFORMS.map((platform) => {
+  const byPlatform = new Map(rows.map(r => [r.platform, r]));
+  return SUPPORTED_SCRAPER_PLATFORMS.map(platform => {
     const r = byPlatform.get(platform);
     return {
       platform,
@@ -547,9 +567,11 @@ export async function bulkSaveTrackedJobs(jobs: InsertTrackedJob[]) {
   let newJobs = 0;
   let skipped = 0;
 
-  const userIds = Array.from(new Set(jobs.map((job) => job.userId)));
+  const userIds = Array.from(new Set(jobs.map(job => job.userId)));
   if (userIds.length !== 1) {
-    throw new Error("bulkSaveTrackedJobs expects jobs for exactly one local user");
+    throw new Error(
+      "bulkSaveTrackedJobs expects jobs for exactly one local user"
+    );
   }
   const existingRows = await db
     .select({
@@ -558,7 +580,9 @@ export async function bulkSaveTrackedJobs(jobs: InsertTrackedJob[]) {
     })
     .from(trackedJobs)
     .where(eq(trackedJobs.userId, userIds[0]));
-  const known = new Set(existingRows.map((row) => `${row.platform}\u0000${row.jobId}`));
+  const known = new Set(
+    existingRows.map(row => `${row.platform}\u0000${row.jobId}`)
+  );
 
   for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
     const batch = jobs.slice(i, i + BATCH_SIZE);
@@ -577,7 +601,9 @@ export async function bulkSaveTrackedJobs(jobs: InsertTrackedJob[]) {
       newJobs += pending.length;
     }
     if ((i + BATCH_SIZE) % 500 === 0) {
-      console.log(`[Database] Saved ${newJobs} new jobs, skipped ${skipped} duplicates so far...`);
+      console.log(
+        `[Database] Saved ${newJobs} new jobs, skipped ${skipped} duplicates so far...`
+      );
     }
   }
   return { newJobs, skipped };
@@ -594,7 +620,8 @@ export async function getTrackedJobs(
 ) {
   const db = await getDb();
   const conditions = [eq(trackedJobs.userId, userId)];
-  if (filters?.platform) conditions.push(eq(trackedJobs.platform, filters.platform));
+  if (filters?.platform)
+    conditions.push(eq(trackedJobs.platform, filters.platform));
   if (filters?.status) conditions.push(eq(trackedJobs.status, filters.status));
 
   const baseQuery = db
@@ -633,7 +660,9 @@ export async function updateJobStatus(
 // JOB SCAN HISTORY
 // ============================================================================
 
-export async function createJobScanHistory(scan: InsertJobScanHistory): Promise<number> {
+export async function createJobScanHistory(
+  scan: InsertJobScanHistory
+): Promise<number> {
   const db = await getDb();
   const [inserted] = await db
     .insert(jobScanHistory)
@@ -661,7 +690,10 @@ export async function updateJobScanHistory(
   }
 ) {
   const db = await getDb();
-  await db.update(jobScanHistory).set(updates).where(eq(jobScanHistory.id, scanId));
+  await db
+    .update(jobScanHistory)
+    .set(updates)
+    .where(eq(jobScanHistory.id, scanId));
 }
 
 export async function getRecentJobScans(userId: number, limit: number = 10) {
@@ -725,7 +757,8 @@ export async function getEnabledPlatforms(userId: number): Promise<string[]> {
   // Default mixes Tier-1 (Adzuna) with the two green Tier-2 scrapers
   // (Indeed, LinkedIn). Adzuna runs only if credentials are configured;
   // searchJobs() will short-circuit it cleanly otherwise.
-  if (!settings || !settings.enabledPlatforms) return ["indeed", "linkedin", "adzuna"];
+  if (!settings || !settings.enabledPlatforms)
+    return ["indeed", "linkedin", "adzuna"];
   return settings.enabledPlatforms as string[];
 }
 
@@ -733,7 +766,9 @@ export async function getEnabledPlatforms(userId: number): Promise<string[]> {
 // WATCHED COMPANIES (Phase 14 — D-020)
 // ============================================================================
 
-export async function listWatchedCompanies(userId: number): Promise<WatchedCompany[]> {
+export async function listWatchedCompanies(
+  userId: number
+): Promise<WatchedCompany[]> {
   const db = await getDb();
   return await db
     .select()
@@ -742,35 +777,61 @@ export async function listWatchedCompanies(userId: number): Promise<WatchedCompa
     .orderBy(desc(watchedCompanies.addedAt));
 }
 
-export async function addWatchedCompany(userId: number, companySlug: string): Promise<{ added: boolean }> {
+export async function addWatchedCompany(
+  userId: number,
+  companySlug: string
+): Promise<{ added: boolean }> {
   const db = await getDb();
   const existing = await db
     .select()
     .from(watchedCompanies)
-    .where(and(eq(watchedCompanies.userId, userId), eq(watchedCompanies.companySlug, companySlug)))
+    .where(
+      and(
+        eq(watchedCompanies.userId, userId),
+        eq(watchedCompanies.companySlug, companySlug)
+      )
+    )
     .limit(1);
   if (existing.length > 0) return { added: false };
   await db.insert(watchedCompanies).values({ userId, companySlug });
   return { added: true };
 }
 
-export async function removeWatchedCompany(userId: number, companySlug: string): Promise<{ removed: boolean }> {
+export async function removeWatchedCompany(
+  userId: number,
+  companySlug: string
+): Promise<{ removed: boolean }> {
   const db = await getDb();
   const existing = await db
     .select()
     .from(watchedCompanies)
-    .where(and(eq(watchedCompanies.userId, userId), eq(watchedCompanies.companySlug, companySlug)))
+    .where(
+      and(
+        eq(watchedCompanies.userId, userId),
+        eq(watchedCompanies.companySlug, companySlug)
+      )
+    )
     .limit(1);
   if (existing.length === 0) return { removed: false };
   await db
     .delete(watchedCompanies)
-    .where(and(eq(watchedCompanies.userId, userId), eq(watchedCompanies.companySlug, companySlug)));
+    .where(
+      and(
+        eq(watchedCompanies.userId, userId),
+        eq(watchedCompanies.companySlug, companySlug)
+      )
+    );
   return { removed: true };
 }
 
-export async function clearWatchedCompanies(userId: number): Promise<{ removed: number }> {
+export async function clearWatchedCompanies(
+  userId: number
+): Promise<{ removed: number }> {
   const db = await getDb();
-  const current = await db.select().from(watchedCompanies).where(eq(watchedCompanies.userId, userId));
+  const current = await db
+    .select()
+    .from(watchedCompanies)
+    .where(eq(watchedCompanies.userId, userId));
   if (current.length === 0) return { removed: 0 };
   await db.delete(watchedCompanies).where(eq(watchedCompanies.userId, userId));
   return { removed: current.length };
@@ -790,7 +851,9 @@ export async function cleanupOldDebugLogs(): Promise<number> {
 // SEARCH PRESETS
 // ============================================================================
 
-export async function getSearchPresets(userId: number): Promise<SearchPreset[]> {
+export async function getSearchPresets(
+  userId: number
+): Promise<SearchPreset[]> {
   const db = await getDb();
   return await db
     .select()
@@ -861,24 +924,36 @@ export async function updateSearchPreset(
   await db
     .update(searchPresets)
     .set({ ...data, updatedAt: new Date() })
-    .where(and(eq(searchPresets.id, presetId), eq(searchPresets.userId, userId)));
+    .where(
+      and(eq(searchPresets.id, presetId), eq(searchPresets.userId, userId))
+    );
   return true;
 }
 
-export async function deleteSearchPreset(presetId: number, userId: number): Promise<boolean> {
+export async function deleteSearchPreset(
+  presetId: number,
+  userId: number
+): Promise<boolean> {
   const db = await getDb();
   await db
     .delete(searchPresets)
-    .where(and(eq(searchPresets.id, presetId), eq(searchPresets.userId, userId)));
+    .where(
+      and(eq(searchPresets.id, presetId), eq(searchPresets.userId, userId))
+    );
   return true;
 }
 
-export async function markPresetUsed(presetId: number, userId: number): Promise<void> {
+export async function markPresetUsed(
+  presetId: number,
+  userId: number
+): Promise<void> {
   const db = await getDb();
   await db
     .update(searchPresets)
     .set({ lastUsedAt: new Date() })
-    .where(and(eq(searchPresets.id, presetId), eq(searchPresets.userId, userId)));
+    .where(
+      and(eq(searchPresets.id, presetId), eq(searchPresets.userId, userId))
+    );
 }
 
 // ── Application Notes ──────────────────────────────────────────────
@@ -887,14 +962,25 @@ export async function getApplicationNotes(userId: number, jobId: number) {
   return db
     .select()
     .from(applicationNotes)
-    .where(and(eq(applicationNotes.userId, userId), eq(applicationNotes.jobId, jobId)))
+    .where(
+      and(
+        eq(applicationNotes.userId, userId),
+        eq(applicationNotes.jobId, jobId)
+      )
+    )
     .orderBy(desc(applicationNotes.createdAt));
 }
 
 export async function addApplicationNote(data: {
   userId: number;
   jobId: number;
-  noteType: "note" | "status_change" | "interview" | "follow_up" | "offer" | "rejection";
+  noteType:
+    | "note"
+    | "status_change"
+    | "interview"
+    | "follow_up"
+    | "offer"
+    | "rejection";
   content: string;
   oldStatus?: string;
   newStatus?: string;
@@ -914,7 +1000,9 @@ export async function deleteApplicationNote(userId: number, noteId: number) {
   const db = await getDb();
   await db
     .delete(applicationNotes)
-    .where(and(eq(applicationNotes.id, noteId), eq(applicationNotes.userId, userId)));
+    .where(
+      and(eq(applicationNotes.id, noteId), eq(applicationNotes.userId, userId))
+    );
 }
 
 export async function getApplicationNotesCount(userId: number) {

@@ -1,6 +1,11 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useLocation } from "wouter";
-import { useAppearance } from "@/contexts/AppearanceContext";
 
 /**
  * Contextual sub-navigation under the top nav. Lists section-specific tabs
@@ -23,7 +28,6 @@ const SUBNAV_BY_ROUTE: Record<string, SubNavItem[]> = {
     { id: "sources", label: "Data Sources" },
     { id: "scan", label: "Auto-scan" },
     { id: "notif", label: "Notifications" },
-    { id: "notebook", label: "NotebookLM auth" },
     { id: "appearance", label: "Appearance" },
     { id: "automation", label: "Inbox & Slack" },
     { id: "local-data", label: "Local data" },
@@ -33,10 +37,6 @@ const SUBNAV_BY_ROUTE: Record<string, SubNavItem[]> = {
     { id: "pipeline", label: "Pipeline view" },
     { id: "timeline", label: "Timeline" },
     { id: "responses", label: "Responses" },
-  ],
-  "/briefings": [
-    { id: "inbox", label: "Inbox" },
-    { id: "generate", label: "Generate" },
   ],
   "/home": [
     { id: "sources", label: "Sources" },
@@ -68,22 +68,11 @@ const SubNavContext = createContext<SubNavContextValue | undefined>(undefined);
 export function SubNavProvider({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [perRoute, setPerRoute] = useState<Record<string, string>>({});
-  const { value: appearance } = useAppearance();
-
-  // If briefings are switched off in Appearance, drop the /briefings entries
-  // and the Settings "notebook" sub-tab so dead controls don't render.
-  const rawItems = SUBNAV_BY_ROUTE[location] ?? [];
-  const items = appearance.briefings
-    ? rawItems
-    : location === "/briefings"
-      ? []
-      : location === "/settings"
-        ? rawItems.filter((it) => it.id !== "notebook")
-        : rawItems;
+  const items = SUBNAV_BY_ROUTE[location] ?? [];
   const current = perRoute[location] ?? items[0]?.id ?? null;
 
   const setCurrent = (id: string) => {
-    setPerRoute((prev) => ({ ...prev, [location]: id }));
+    setPerRoute(prev => ({ ...prev, [location]: id }));
   };
 
   const value = useMemo(
@@ -92,7 +81,9 @@ export function SubNavProvider({ children }: { children: ReactNode }) {
     [current, items.length, location]
   );
 
-  return <SubNavContext.Provider value={value}>{children}</SubNavContext.Provider>;
+  return (
+    <SubNavContext.Provider value={value}>{children}</SubNavContext.Provider>
+  );
 }
 
 export function useSubNav(): SubNavContextValue {
@@ -109,7 +100,7 @@ export function SubNav() {
   return (
     <div className="subnav">
       <div className="subnav-inner">
-        {items.map((it) => (
+        {items.map(it => (
           <button
             key={it.id}
             type="button"

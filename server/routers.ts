@@ -13,8 +13,6 @@ import { debugStagesRouter } from "./routers_debug_stages";
 import { settingsRouter } from "./routers_settings";
 import { presetsRouter } from "./routers_presets";
 import { notesRouter } from "./routers_notes";
-import { briefingsRouter } from "./routers_briefings";
-import { notebookLmRouter } from "./routers_notebooklm";
 import { scrapersRouter } from "./routers_scrapers";
 import { companiesRouter } from "./routers_companies";
 import { automationRouter } from "./routers_automation";
@@ -25,8 +23,8 @@ export const appRouter = router({
   // Auth shim — no real login in self-hosted mode, but the frontend still
   // calls auth.me on every page load. Returns the constant local user.
   auth: router({
-    me: publicProcedure.query((opts) => opts.ctx.user),
-    logout: publicProcedure.mutation(() => ({ success: true } as const)),
+    me: publicProcedure.query(opts => opts.ctx.user),
+    logout: publicProcedure.mutation(() => ({ success: true }) as const),
   }),
 
   environment: router({
@@ -54,8 +52,6 @@ export const appRouter = router({
   settings: settingsRouter,
   presets: presetsRouter,
   notes: notesRouter,
-  briefings: briefingsRouter,
-  notebooklm: notebookLmRouter,
   scrapers: scrapersRouter,
   companies: companiesRouter,
   automation: automationRouter,

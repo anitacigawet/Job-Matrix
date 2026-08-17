@@ -3,9 +3,8 @@
 Job Matrix is **local-first and single-user**. Its local Express server binds to
 `127.0.0.1`, records are stored in a local SQLite file, and provider access uses
 your own API keys. There is no server we operate, shared database, hosted Job
-Matrix account, or telemetry collector. Searches and optional AI/NotebookLM
-features still contact the third-party services you enable, as documented in
-the README.
+Matrix account, or telemetry collector. Searches and optional AI features still
+contact the third-party services you enable, as documented in the README.
 
 That said, responsible disclosure is always appreciated.
 
@@ -21,6 +20,7 @@ Please include steps to reproduce and the affected version (`package.json`). You
 ## Scope
 
 Things genuinely worth reporting:
+
 - A way for a malicious job listing or API response to execute code or script in the app (the app sanitizes job-description HTML via DOMPurify — a bypass would qualify).
 - A path-traversal or file-write issue in the local server or the Python subprocess handling.
 - Leakage of API keys or local data beyond the explicitly enabled provider

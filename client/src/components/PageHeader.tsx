@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 /**
  * Standard page header — back-arrow on the left, title + subtitle in the middle,
  * optional right-side action slot. Used by every "sub-page" in Job Matrix
- * (Applied, Analytics, Presets, Settings, Preferences, ConfigDebug, Briefings).
+ * (Applied, Analytics, Presets, Settings, Preferences, ConfigDebug).
  *
  * The "hub" pages (Landing, Onboarding, the dashboard at /jobs, Platforms)
  * keep their own headers — they're entry points, not back-able sub-pages,
@@ -44,7 +44,12 @@ export function PageHeader({
 }: PageHeaderProps) {
   const [, setLocation] = useLocation();
   return (
-    <div className={"flex items-start justify-between mb-8 flex-wrap gap-4 " + (className ?? "")}>
+    <div
+      className={
+        "flex items-start justify-between mb-8 flex-wrap gap-4 " +
+        (className ?? "")
+      }
+    >
       <div className="flex items-center gap-4 flex-1 min-w-0">
         {backHref && (
           <Button

@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { AppearanceTrigger } from "./AppearancePopover";
-import { useAppearance } from "@/contexts/AppearanceContext";
 import { Menu, X } from "lucide-react";
 
 /**
@@ -19,13 +18,37 @@ interface RouteEntry {
 }
 
 const NAV_ROUTES: RouteEntry[] = [
-  { id: "dashboard", label: "Dashboard", path: "/jobs", hook: "go-to-dashboard" },
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    path: "/jobs",
+    hook: "go-to-dashboard",
+  },
   { id: "applied", label: "Applied", path: "/applied", hook: "go-to-applied" },
-  { id: "preferences", label: "Preferences", path: "/preferences", hook: "go-to-preferences" },
-  { id: "analytics", label: "Analytics", path: "/analytics", hook: "go-to-analytics" },
-  { id: "briefings", label: "Briefings", path: "/briefings", hook: "go-to-briefings" },
-  { id: "platforms", label: "Platforms", path: "/home", hook: "go-to-platforms" },
-  { id: "settings", label: "Settings", path: "/settings", hook: "go-to-settings-global" },
+  {
+    id: "preferences",
+    label: "Preferences",
+    path: "/preferences",
+    hook: "go-to-preferences",
+  },
+  {
+    id: "analytics",
+    label: "Analytics",
+    path: "/analytics",
+    hook: "go-to-analytics",
+  },
+  {
+    id: "platforms",
+    label: "Platforms",
+    path: "/home",
+    hook: "go-to-platforms",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    path: "/settings",
+    hook: "go-to-settings-global",
+  },
 ];
 
 function KeyStatusPill() {
@@ -49,10 +72,14 @@ function KeyStatusPill() {
   }
 
   const active = data?.activeProvider ?? "gemini";
-  const providerInfo = data?.providers?.find((p) => p.id === active);
+  const providerInfo = data?.providers?.find(p => p.id === active);
   const hasKey = !!providerInfo?.hasKey;
   const label =
-    active === "gemini" ? "Gemini" : active === "openai" ? "OpenAI" : "DeepSeek";
+    active === "gemini"
+      ? "Gemini"
+      : active === "openai"
+        ? "OpenAI"
+        : "DeepSeek";
 
   return (
     <button
@@ -76,14 +103,11 @@ function KeyStatusPill() {
 export function TopNav() {
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { value: appearance } = useAppearance();
-  // Filter out feature-gated routes (currently just Briefings) when the
-  // user has them switched off in Appearance → AI features.
-  const routes = NAV_ROUTES.filter((r) => appearance.briefings || r.id !== "briefings");
+  const routes = NAV_ROUTES;
   // Match the active nav by longest-prefix path match.
   const activeId =
-    routes.find((r) => location === r.path)?.id ??
-    routes.find((r) => location.startsWith(r.path) && r.path !== "/")?.id;
+    routes.find(r => location === r.path)?.id ??
+    routes.find(r => location.startsWith(r.path) && r.path !== "/")?.id;
 
   useEffect(() => {
     setMobileOpen(false);
@@ -140,9 +164,7 @@ export function TopNav() {
     // of the final layout.
     const raf = requestAnimationFrame(syncAnchor);
     window.addEventListener("resize", syncAnchor);
-    // The SubNav items can change without activeId changing (e.g. when
-    // the briefings master toggle hides /settings's NotebookLM sub-tab
-    // mid-page). Observe its size so we recenter when it does.
+    // Observe SubNav size so changes recenter under the active route.
     const subnav = document.querySelector<HTMLElement>(".subnav-inner");
     const obs = new ResizeObserver(syncAnchor);
     if (subnav) obs.observe(subnav);
@@ -178,7 +200,7 @@ export function TopNav() {
           </span>
         </button>
         <div className="nav-links">
-          {routes.map((r) => (
+          {routes.map(r => (
             <button
               key={r.id}
               type="button"
@@ -195,7 +217,7 @@ export function TopNav() {
         <button
           type="button"
           className="mobile-nav-toggle"
-          onClick={() => setMobileOpen((open) => !open)}
+          onClick={() => setMobileOpen(open => !open)}
           aria-expanded={mobileOpen}
           aria-controls="mobile-primary-navigation"
           aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
@@ -204,11 +226,13 @@ export function TopNav() {
           {mobileOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
         <AppearanceTrigger />
-        <div className="key-status-desktop"><KeyStatusPill /></div>
+        <div className="key-status-desktop">
+          <KeyStatusPill />
+        </div>
       </div>
       {mobileOpen && (
         <div id="mobile-primary-navigation" className="mobile-nav-panel">
-          {routes.map((route) => (
+          {routes.map(route => (
             <button
               key={route.id}
               type="button"
@@ -220,7 +244,9 @@ export function TopNav() {
               {route.label}
             </button>
           ))}
-          <div className="mobile-key-status"><KeyStatusPill /></div>
+          <div className="mobile-key-status">
+            <KeyStatusPill />
+          </div>
         </div>
       )}
     </nav>

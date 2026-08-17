@@ -19,7 +19,7 @@
  *   - And it broke on machines where `py -3` resolved to a Python version
  *     too new for prebuilt numpy wheels (Python 3.15 hit this in 2026-05).
  *
- * So: Node deps here, Python deps on first scraper / briefing use. The
+ * So: Node deps here, Python deps on first scraper use. The
  * runtime self-heals.
  *
  * Idempotent: re-running on an already-set-up tree is a no-op.
@@ -27,8 +27,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
-const log = (msg) => console.log(`[setup] ${msg}`);
-const fail = (msg) => {
+const log = msg => console.log(`[setup] ${msg}`);
+const fail = msg => {
   console.error(`[setup] ERROR: ${msg}`);
   process.exit(1);
 };
@@ -45,7 +45,7 @@ if (!existsSync("node_modules")) {
   if (!run("pnpm install")) {
     fail(
       "pnpm install failed. Make sure pnpm is installed globally " +
-        "(https://pnpm.io/installation), then try again.",
+        "(https://pnpm.io/installation), then try again."
     );
   }
 } else {
@@ -54,12 +54,12 @@ if (!existsSync("node_modules")) {
 
 console.log("");
 log("Setup complete.");
-log('Next: run "pnpm run dev" to start the dev server (defaults to http://localhost:3000).');
+log(
+  'Next: run "pnpm run dev" to start the dev server (defaults to http://localhost:3000).'
+);
 log("");
-log("Python: nothing to do here. The first time you run a scraper or generate");
-log("a briefing, server/python_manager.ts creates / self-heals the shared venv");
-log("at ~/.job-matrix/venv_jobspy_shared/ and pip-installs only what's missing.");
-log("");
-log("NotebookLM: optional one-time auth, only needed if you plan to use");
-log("briefing features. The Settings page has a 'Sign in to NotebookLM' button");
-log("that spawns the login flow — no manual venv activation needed.");
+log("Python: nothing to do here. The first time you run a scraper,");
+log("server/python_manager.ts creates / self-heals the shared venv");
+log(
+  "at ~/.job-matrix/venv_jobspy_shared/ and pip-installs only what's missing."
+);

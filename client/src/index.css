@@ -1050,59 +1050,6 @@ hr { border: none; border-top: 1px solid var(--line); margin: 0; }
   font-family: var(--font-mono); font-size: 11px; color: var(--fg-dim); min-width: 32px; text-align: right;
 }
 
-/* ============================================
- * DAILY BRIEFING STRIP (Dashboard)
- * ============================================ */
-.daily-strip {
-  display: grid;
-  grid-template-columns: 1fr 220px;
-  gap: 16px;
-  padding: 14px 18px;
-}
-[data-density="compact"] .daily-strip { padding: 10px 14px; }
-.daily-strip .ds-meta { display: flex; align-items: center; gap: 12px; }
-.daily-strip .ds-info { flex: 1; min-width: 0; }
-.daily-strip .ds-title { font-weight: 600; font-size: var(--font-sm); }
-.daily-strip .ds-sub { font-size: var(--font-xs); color: var(--fg-dim); margin-top: 2px; }
-.daily-strip .ds-scrub {
-  height: 4px; background: var(--bg-3); border-radius: 999px; overflow: hidden;
-  margin-top: 8px;
-}
-.daily-strip .ds-scrub > div {
-  height: 100%; background: var(--accent-1); border-radius: 999px;
-}
-.daily-strip .ds-thumb {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius);
-  border: 1px solid var(--line);
-  background: var(--bg-2);
-  height: 84px;
-  cursor: pointer;
-}
-.daily-strip .ds-thumb:hover { border-color: var(--accent-line); }
-.daily-strip .ds-thumb svg { width: 100%; height: 100%; display: block; }
-.daily-strip .ds-thumb .ds-thumb-label {
-  position: absolute; left: 8px; bottom: 8px;
-  background: oklch(0 0 0 / 50%);
-  color: white;
-  padding: 2px 6px; border-radius: 4px;
-  font-size: 10px; font-family: var(--font-mono);
-}
-
-/* Interview prep inline (Applied) */
-.prep-inline {
-  display: flex; align-items: center; gap: 12px;
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  font-size: var(--font-sm);
-}
-.prep-inline .prep-title { font-weight: 500; color: var(--fg); }
-.prep-inline .prep-sub { color: var(--fg-muted); font-size: var(--font-xs); }
-
 /* Mobile */
 @media (max-width: 1024px) {
   .dash-grid { grid-template-columns: 1fr; }
@@ -1165,8 +1112,6 @@ hr { border: none; border-top: 1px solid var(--line); margin: 0; }
     padding-left: var(--space-4);
     padding-right: var(--space-4);
   }
-  .daily-strip { grid-template-columns: minmax(0, 1fr); }
-  .daily-strip .ds-thumb { height: 72px; }
   .llm-key-warning { align-items: stretch; flex-direction: column; }
   .llm-key-warning > .row { align-items: flex-start; }
   .llm-key-warning > .btn { justify-content: center; width: 100%; }

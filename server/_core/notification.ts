@@ -9,11 +9,13 @@ import { readSettings } from "./settings";
 export type NotificationPayload = {
   title: string;
   content: string;
-  /** Explicit opt-in: ordinary scan/briefing console notices stay local. */
+  /** Explicit opt-in: ordinary scan console notices stay local. */
   slack?: boolean;
 };
 
-export async function notifyOwner(payload: NotificationPayload): Promise<boolean> {
+export async function notifyOwner(
+  payload: NotificationPayload
+): Promise<boolean> {
   const title = payload.title?.trim() ?? "";
   const content = payload.content?.trim() ?? "";
   if (!title || !content) return false;
@@ -22,7 +24,9 @@ export async function notifyOwner(payload: NotificationPayload): Promise<boolean
   console.log(content);
   console.log("────────────────────");
 
-  const webhookUrl = payload.slack ? readSettings().slack?.webhookUrl : undefined;
+  const webhookUrl = payload.slack
+    ? readSettings().slack?.webhookUrl
+    : undefined;
   if (!webhookUrl) return true;
 
   try {
@@ -37,7 +41,9 @@ export async function notifyOwner(payload: NotificationPayload): Promise<boolean
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) {
-      console.error(`[Notification] Slack rejected the message (${response.status}).`);
+      console.error(
+        `[Notification] Slack rejected the message (${response.status}).`
+      );
       return false;
     }
     return true;

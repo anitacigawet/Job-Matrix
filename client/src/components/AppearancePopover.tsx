@@ -26,7 +26,7 @@ function Seg<V extends string>({
 }) {
   return (
     <div className="ap-seg" role="group" aria-label={ariaLabel}>
-      {options.map((o) => (
+      {options.map(o => (
         <button
           key={o.value}
           type="button"
@@ -49,8 +49,8 @@ function SwatchSlider({
   onChange: (k: AccentKey) => void;
   theme: "dark" | "light";
 }) {
-  const heroes = ACCENT_KEYS.map((k) =>
-    theme === "light" ? ACCENT_PALETTES[k].light[0] : ACCENT_PALETTES[k].dark[0],
+  const heroes = ACCENT_KEYS.map(k =>
+    theme === "light" ? ACCENT_PALETTES[k].light[0] : ACCENT_PALETTES[k].dark[0]
   );
   // A blended track so dragging visibly fades between accent hero colours.
   const gradient = `linear-gradient(to right, ${heroes.join(", ")})`;
@@ -72,14 +72,14 @@ function SwatchSlider({
           max={ACCENT_KEYS.length - 1}
           step={1}
           value={idx}
-          onChange={(e) => onChange(ACCENT_KEYS[parseInt(e.target.value, 10)])}
+          onChange={e => onChange(ACCENT_KEYS[parseInt(e.target.value, 10)])}
           aria-label={`Accent for ${theme} mode`}
           aria-valuetext={ACCENT_PALETTES[value].label}
           data-agent-input="appearance-accent"
         />
       </div>
       <div className="ap-accent-labels">
-        {ACCENT_KEYS.map((k) => (
+        {ACCENT_KEYS.map(k => (
           <button
             key={k}
             type="button"
@@ -130,7 +130,7 @@ function Slider({
           max={max}
           step={step}
           value={value}
-          onChange={(e) => onChange(parseInt(e.target.value, 10))}
+          onChange={e => onChange(parseInt(e.target.value, 10))}
           aria-label={label}
           data-agent-input="appearance-glass"
         />
@@ -159,31 +159,35 @@ export function AppearanceBody({ inline = false }: { inline?: boolean }) {
             { value: "dark", label: "Dark" },
             { value: "light", label: "Light" },
           ]}
-          onChange={(v) => set({ theme: v })}
+          onChange={v => set({ theme: v })}
         />
       </div>
 
       <div className="ap-section">
         <div className="ap-row">
           <span className="ap-label">Accent · {theme} mode</span>
-          <span className="mono" style={{ fontSize: 11, color: "var(--fg-dim)" }}>
+          <span
+            className="mono"
+            style={{ fontSize: 11, color: "var(--fg-dim)" }}
+          >
             {ACCENT_PALETTES[accentValue].label}
           </span>
         </div>
         <SwatchSlider
           value={accentValue}
           theme={theme}
-          onChange={(v) => set({ accent: { [theme]: v } })}
+          onChange={v => set({ accent: { [theme]: v } })}
         />
         <div style={{ fontSize: 11, color: "var(--fg-dim)" }}>
-          Each theme keeps its own accent — flipping to light won't lose your dark choice.
+          Each theme keeps its own accent — flipping to light won't lose your
+          dark choice.
         </div>
       </div>
 
       <Slider
         label="Glass intensity"
         value={a.glass ?? 50}
-        onChange={(v) => set({ glass: v })}
+        onChange={v => set({ glass: v })}
       />
 
       <div className="ap-section">
@@ -195,7 +199,7 @@ export function AppearanceBody({ inline = false }: { inline?: boolean }) {
             { value: "comfortable", label: "Comfortable" },
             { value: "compact", label: "Compact" },
           ]}
-          onChange={(v) => set({ density: v })}
+          onChange={v => set({ density: v })}
         />
       </div>
 
@@ -208,53 +212,8 @@ export function AppearanceBody({ inline = false }: { inline?: boolean }) {
             { value: "top", label: "Top bar" },
             { value: "sidebar", label: "Sidebar" },
           ]}
-          onChange={(v) => set({ nav: v })}
+          onChange={v => set({ nav: v })}
         />
-      </div>
-
-      <div className="ap-section" style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
-        <div className="ap-label">AI features</div>
-        <div className="ap-row" style={{ alignItems: "flex-start" }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: "var(--font-sm)", color: "var(--fg)" }}>
-              NotebookLM briefings
-            </div>
-            <div className="dim" style={{ fontSize: 11, marginTop: 2, lineHeight: 1.45 }}>
-              Daily coach audio, weekly market briefings, interview prep, per-job briefings. Hides the dashboard strip, the Briefings entry in the nav, the NotebookLM auth + auto-briefing sections in Settings, and the per-job Briefings menu on applied cards.
-            </div>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={a.briefings}
-            aria-label="Toggle NotebookLM briefings"
-            data-agent-action="toggle-briefings-feature"
-            onClick={() => set({ briefings: !a.briefings })}
-            style={{
-              width: 36,
-              height: 20,
-              borderRadius: 999,
-              border: 0,
-              cursor: "pointer",
-              padding: 2,
-              background: a.briefings ? "var(--accent-1)" : "var(--bg-3)",
-              transition: "background .14s",
-              flexShrink: 0,
-            }}
-          >
-            <span
-              style={{
-                display: "block",
-                width: 16,
-                height: 16,
-                borderRadius: "50%",
-                background: "white",
-                transform: a.briefings ? "translateX(16px)" : "translateX(0)",
-                transition: "transform .14s",
-              }}
-            />
-          </button>
-        </div>
       </div>
 
       {inline && (
@@ -288,7 +247,8 @@ export function AppearanceTrigger() {
   useEffect(() => {
     if (!open) return;
     const off = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     };
     const esc = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -306,7 +266,7 @@ export function AppearanceTrigger() {
       <button
         type="button"
         className="appearance-trigger"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(o => !o)}
         aria-expanded={open}
         aria-haspopup="dialog"
         data-agent-action="open-appearance-panel"
@@ -316,7 +276,11 @@ export function AppearanceTrigger() {
         <span style={{ fontSize: "var(--font-xs)" }}>Appearance</span>
       </button>
       {open && (
-        <div className="appearance-popover" role="dialog" aria-label="Appearance">
+        <div
+          className="appearance-popover"
+          role="dialog"
+          aria-label="Appearance"
+        >
           <div className="ap-head">
             <h3>Appearance</h3>
             <button
@@ -359,7 +323,10 @@ export function SettingsAppearance() {
       <div className="row-between">
         <div>
           <div className="eyebrow">Appearance</div>
-          <div className="dim" style={{ fontSize: "var(--font-sm)", marginTop: 4 }}>
+          <div
+            className="dim"
+            style={{ fontSize: "var(--font-sm)", marginTop: 4 }}
+          >
             Personalize the look without touching CSS. Saved per browser
             (localStorage). Per-theme accent — flipping themes preserves your
             other choice.
@@ -369,14 +336,20 @@ export function SettingsAppearance() {
       </div>
       <hr className="divider" />
       <AppearanceBody inline />
-      <div className="card card-pad" style={{ background: "var(--bg-2)", marginTop: 4 }}>
+      <div
+        className="card card-pad"
+        style={{ background: "var(--bg-2)", marginTop: 4 }}
+      >
         <div className="row-tight" style={{ alignItems: "flex-start" }}>
           <Info size={14} className="dim" style={{ marginTop: 2 }} />
-          <div className="dim" style={{ fontSize: "var(--font-xs)", lineHeight: 1.55 }}>
+          <div
+            className="dim"
+            style={{ fontSize: "var(--font-xs)", lineHeight: 1.55 }}
+          >
             All preferences live in{" "}
             <span className="mono">localStorage["jobmatrix.appearance"]</span>.
-            Wipe your browser data to reset, or hit the button above. Local-first
-            by default — no sync, no cloud, no telemetry.
+            Wipe your browser data to reset, or hit the button above.
+            Local-first by default — no sync, no cloud, no telemetry.
           </div>
         </div>
       </div>

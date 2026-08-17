@@ -26,9 +26,12 @@ const G_PREFIX_TIMEOUT_MS = 1500;
 const NAVIGATION: { secondKey: string; path: string; label: string }[] = [
   { secondKey: "d", path: "/jobs", label: "Dashboard" },
   { secondKey: "a", path: "/applied", label: "Applied" },
-  { secondKey: "p", path: "/preferences", label: "Preferences (includes Presets)" },
+  {
+    secondKey: "p",
+    path: "/preferences",
+    label: "Preferences (includes Presets)",
+  },
   { secondKey: "n", path: "/analytics", label: "Analytics" },
-  { secondKey: "b", path: "/briefings", label: "Briefings" },
   { secondKey: "s", path: "/settings", label: "Settings" },
 ];
 
@@ -59,7 +62,7 @@ export function KeyboardShortcuts() {
       // "?" → help (Shift + / on US layout produces "?")
       if (e.key === "?") {
         e.preventDefault();
-        setHelpOpen((v) => !v);
+        setHelpOpen(v => !v);
         return;
       }
 
@@ -76,7 +79,7 @@ export function KeyboardShortcuts() {
         now - gPrefixTime.current < G_PREFIX_TIMEOUT_MS;
 
       if (prefixActive) {
-        const match = NAVIGATION.find((n) => n.secondKey === key);
+        const match = NAVIGATION.find(n => n.secondKey === key);
         gPrefixTime.current = null;
         if (match) {
           e.preventDefault();
@@ -107,14 +110,15 @@ export function KeyboardShortcuts() {
         <DialogHeader>
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
           <DialogDescription>
-            Press <Kbd>?</Kbd> any time to toggle this overlay. Press <Kbd>Esc</Kbd> to close.
+            Press <Kbd>?</Kbd> any time to toggle this overlay. Press{" "}
+            <Kbd>Esc</Kbd> to close.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-sm">
           <div>
             <p className="font-medium mb-2">Navigate</p>
             <ul className="space-y-1.5">
-              {NAVIGATION.map((n) => (
+              {NAVIGATION.map(n => (
                 <li
                   key={n.secondKey}
                   className="flex items-center justify-between"
@@ -129,9 +133,9 @@ export function KeyboardShortcuts() {
           </div>
           <div className="pt-2 border-t border-border/40">
             <p className="text-xs text-muted-foreground">
-              Two-key sequences: press <Kbd>g</Kbd>, then the second key
-              within 1.5 seconds. Shortcuts are inactive while you're typing
-              in an input or textarea.
+              Two-key sequences: press <Kbd>g</Kbd>, then the second key within
+              1.5 seconds. Shortcuts are inactive while you're typing in an
+              input or textarea.
             </p>
           </div>
         </div>

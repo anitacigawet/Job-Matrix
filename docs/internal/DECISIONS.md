@@ -13,7 +13,7 @@ Format: each entry has an ID, title, date, status, context, decision, consequenc
 
 **Context.** Job Matrix was originally scaffolded on the Manus platform with OpenRouter as a gateway for LLM calls. Operator has explicit feedback: purge both. OpenRouter charges fees on bring-your-own-key usage; Manus is a platform we don't want to depend on.
 
-**Decision.** All references to Manus, OpenRouter, Forge, BUILT_IN_FORGE_*, vite-plugin-manus-runtime, .manus/, and any `openrouter/...` model slug have been removed. LLM access uses direct vendor SDKs only: `@google/genai`, `openai`, DeepSeek's OpenAI-compatible client. No gateways, ever.
+**Decision.** All references to Manus, OpenRouter, Forge, BUILT*IN_FORGE*\*, vite-plugin-manus-runtime, .manus/, and any `openrouter/...` model slug have been removed. LLM access uses direct vendor SDKs only: `@google/genai`, `openai`, DeepSeek's OpenAI-compatible client. No gateways, ever.
 
 **Consequences.** We maintain three adapters but one router. Adding a fourth provider is small. Re-introducing OpenRouter or Manus requires reopening this decision with the operator.
 
@@ -80,7 +80,7 @@ Format: each entry has an ID, title, date, status, context, decision, consequenc
 
 **Decision.** Retire the AGENT_MANIFEST.md framing. The hook inventory moves to `docs/internal/AGENT_HOOKS_REFERENCE.md` (developer reference, not agent-facing). The tested concierge prompt at `docs/CONCIERGE_PROMPT.md` is the **only** thing AI agents are given. Do not pad it with hook documentation.
 
-**Consequences.** Hooks are still mandatory in code (data-agent-* attributes), but their existence is for the DOM-navigation use case, not for the agent to "read about" up-front. The internal reference is for human contributors who add new hooks.
+**Consequences.** Hooks are still mandatory in code (data-agent-\* attributes), but their existence is for the DOM-navigation use case, not for the agent to "read about" up-front. The internal reference is for human contributors who add new hooks.
 
 ---
 
@@ -144,6 +144,7 @@ Format: each entry has an ID, title, date, status, context, decision, consequenc
 **Context.** Project has grown beyond what an ad-hoc TODO.md can track cleanly. Operator pointed at the Z-SPAN-derived AUTOPILOT_PROTOCOL methodology. Adopting it gives us the "operator types 'continue' → AI ships next atomic chunk" loop with appropriate gates.
 
 **Decision.** Job Matrix adopts the protocol with these contract documents:
+
 - `CLAUDE.md` (root) — operating manual
 - `VISION.md` (root) — strategic vision
 - `docs/internal/ROADMAP.md` — phase-by-phase plan
@@ -175,6 +176,7 @@ Legacy `TODO.md` is retired; its content has been folded into `TASKS.md` COMPLET
 **Status:** active (skipped Phase 10 D10.5 with rationale)
 
 **Context.** Phase 10 D10.5 was scoped as "wrap JobSpy calls with retry + exponential backoff for transient errors." The D10.1 triage (see `SCRAPER_TRIAGE.md`) caught zero transient failures across the four non-Indeed platforms — instead, the observed failure modes are:
+
 - Glassdoor: silent 0 rows (semantic degradation, not transient)
 - ZipRecruiter: HTTP 403 from Cloudflare (hard block, retry makes it worse)
 - LinkedIn: works
@@ -192,17 +194,20 @@ Legacy `TODO.md` is retired; its content has been folded into `TASKS.md` COMPLET
 **Status:** active
 
 **Context.** After the D10.1 surface triage, operator asked whether the broken scrapers were fixable. Deep-dive (documented in `SCRAPER_TRIAGE.md` 2026-05-17 update):
+
 - **Glassdoor** — JobSpy's location-AJAX endpoint gets HTTP 400 from Glassdoor; the job-search endpoint returns vague "Error encountered in API response." Library expects an API shape Glassdoor no longer serves.
 - **Google Jobs** — JobSpy's cursor-extraction logic can't find the pagination cursor in Google's current HTML response. Library expects a DOM shape Google no longer produces. Google isn't even listed as supported in JobSpy's PyPI summary.
 - **ZipRecruiter** — Cloudflare 403 before any application code runs. Hard network-level block; only fix is residential-proxy rotation, which we will not ship (violates D-002).
 
 **Decision.** Job Matrix officially treats these three platforms as **not operable** as of 2026-05-17. We will not pursue fixes from inside Job Matrix because:
+
 - Glassdoor + Google are upstream-library issues — JobSpy would need to be updated or forked. Forking is a substantial commitment to a non-core dependency.
 - ZipRecruiter is unfixable without architectural compromises (proxy rotation) that we have committed not to make.
 
 UI consequence: the Platforms page should warn users when they toggle these on, so they don't waste cycles trying to scrape something we know won't work. They remain toggleable in case JobSpy ships a fix and the user wants to re-validate without waiting for a Job Matrix release.
 
 **Revisit triggers (any of):**
+
 1. JobSpy ships a new release with Glassdoor / Google fixes — re-validate immediately.
 2. Operator decides commercial path is worth a paid-proxy architecture for ZipRecruiter (likely "no" — see D-002 + D-007).
 3. Real user telemetry on `scraper_health` shows one of these platforms suddenly succeeding (would suggest an upstream fix landed).
@@ -219,12 +224,14 @@ UI consequence: the Platforms page should warn users when they toggle these on, 
 **Context.** Phase 11 closed most of the rough edges but the app still rendered with per-page chrome — every page painted its own header, nav-pills row, theme handling, and background blur effects. Adding new top-level affordances (Appearance prefs, briefings toggle, etc.) meant editing 8–10 page files. The pattern didn't scale.
 
 **Decision.** Introduce a global page-shell in `App.tsx` consisting of:
+
 - `<TopNav />` — single source of truth for primary navigation (8 routes → 7 after D-018), brand mark, Appearance trigger, LLM-key status pill.
 - `<SubNav />` — context-aware secondary tabs per route, fed by a `SUBNAV_BY_ROUTE` map and consumed via a `useSubNav()` hook each page wires into its body.
 - `<AppearanceProvider>` — single context that owns theme + per-theme accent + glass intensity + density + nav layout + feature flags (D-017), persisted in `localStorage["jobmatrix.appearance"]` and applied via `data-*` attributes on `<html>`.
 - A new `index.css` token + primitive layer (`.card`, `.btn`, `.badge`, `.chip`, `.workflow-step`, `.status-strip`, `.dash-grid`, etc.) replacing the old per-page Tailwind soup.
 
 The port lands incrementally:
+
 - **Phase 11.5/ph1** — shell + design tokens.
 - **Phase 11.5/ph2** — dashboard ported to the new 3-zone `.dash-grid` (WorkflowRail / DailyBriefingStrip / StatusStrip + the existing job list).
 - **Phase 11.5/ph3a–f** — every page with a SubNav entry (Settings, Briefings, Applied, Preferences, Analytics, Platforms) reads `useSubNav()` and conditional-renders per active sub-tab.
@@ -232,6 +239,7 @@ The port lands incrementally:
 Routes opt out of the shell via `BARE_ROUTES` (currently just `/onboarding`, which is a gated flow).
 
 **Consequences.**
+
 - Adding a new top-level surface = one edit to `TopNav` + optionally one to `SubNav`.
 - Pages render under a consistent shell, max-width 1480px, centered.
 - Legacy `.glass-card` className survives as a bridge so pages that haven't been re-styled still pick up `--glass-bg` / `--glass-blur` from the Appearance toggles.
@@ -245,11 +253,12 @@ Routes opt out of the shell via `BARE_ROUTES` (currently just `/onboarding`, whi
 **Date:** 2026-05-18
 **Status:** active
 
-**Context.** With the SubNav shipping the conventional "left-aligned to page-content" pattern, the secondary bar felt orphaned — visually disconnected from the TopNav tab that opened it. Operator pushed back twice, asking for the SubNav to feel like a dropdown extension of the parent tab. First attempt (b338593) aligned the first SubNav item under the active tab; operator clarified they wanted the *whole row's midpoint* centered under the active button.
+**Context.** With the SubNav shipping the conventional "left-aligned to page-content" pattern, the secondary bar felt orphaned — visually disconnected from the TopNav tab that opened it. Operator pushed back twice, asking for the SubNav to feel like a dropdown extension of the parent tab. First attempt (b338593) aligned the first SubNav item under the active tab; operator clarified they wanted the _whole row's midpoint_ centered under the active button.
 
 **Decision.** `TopNav` publishes the active tab's center-x as a CSS custom property `--subnav-anchor-x` on `documentElement` (computed inside a `useLayoutEffect` that defers one rAF for layout settlement). `.subnav-inner`'s `padding-left` is `max(space-8, var(--subnav-anchor-x, space-8))`, where the anchor is set to `activeCenter - subnavLeft - contentWidth/2`. Result: the SubNav row's geometric midpoint lands under the active TopNav button's midpoint. A 180ms ease transition smooths the slide when the user changes tabs. A `ResizeObserver` on `.subnav-inner` re-runs the measurement when items change without an activeId change (e.g. when the briefings master toggle hides a sub-tab).
 
 **Consequences.**
+
 - The SubNav is visually tethered to its parent tab — call it "magnetic strip" behavior.
 - Adding/removing sub-tabs at runtime works automatically (the ResizeObserver catches it).
 - Overflow remains handled by `.subnav-inner`'s `overflow-x: auto` if a far-right active tab has many sub-items that would push past 1480px.
@@ -269,6 +278,7 @@ Routes opt out of the shell via `BARE_ROUTES` (currently just `/onboarding`, whi
 Critically, the toggle also syncs to the server: `BriefingsBackendSync` watches for the falling edge (true → false) and fires `settings.updateAutoScan({ autoDailyBriefing: false, autoWeeklyBriefing: false })`. Otherwise the cron would keep running despite the user opting out of the UI. Rising edge (false → true) does NOT auto-enable schedules — re-enabling generation requires explicit opt-in via the now-visible Auto-scan switches.
 
 **Consequences.**
+
 - One switch hides ~7 distinct UI surfaces in real-time.
 - Existing briefings remain accessible via direct URL.
 - Schedulers actually stop, not just go silent in the UI.
@@ -288,6 +298,7 @@ Critically, the toggle also syncs to the server: `BriefingsBackendSync` watches 
 The `go-to-presets` agent-action hook is dropped from AGENT_HOOKS_REFERENCE. Agents reach the new sub-tab via the parameterized `subnav-presets` hook.
 
 **Consequences.**
+
 - TopNav is leaner (7 tabs), magnetic strip slides cleaner across them.
 - Direct `/presets` URL bookmarks break (404). Acceptable for a private beta with one user; if commercial release reopens, consider a redirect.
 - This is a precedent for future "is this really a peer route?" questions — Search Presets being a configuration of Job Preferences turned out to be the right mental model.
@@ -318,6 +329,7 @@ Rejected — **Option B (two-class system with separate `enabled_sources` settin
 **Architectural red line preserved.** D-002 holds for all three tiers: API keys (Adzuna app_id/app_key, future cookies) stay on the user's machine in `settings.json`. We host no scraping infrastructure, route no requests through a server we operate. Tier 3 specifically: the cookie belongs to the user, the scrape happens locally, the ToS exposure is theirs — same shield model as Tier 2.
 
 **Consequences.**
+
 - Phase 13 (Data Source Maturity) opens; commercial-placeholder phases in ROADMAP renumber from 13–15 to 14–16.
 - The README's "Scraping scope" section needs an Adzuna addition once Phase 13 lands. The Platforms page gains an Adzuna card alongside existing JobSpy cards; the broken-platform "BROKEN" badges from D-014 stay.
 - Future "what about source X?" questions answer themselves through the tier model: if X has a documented public API, Tier 1 candidate; if X needs scraping, Tier 2 (and inherits all of D-014's caveats); if X needs authentication, Tier 3 (and inherits the ban-risk caveat).
@@ -331,14 +343,14 @@ Rejected — **Option B (two-class system with separate `enabled_sources` settin
 **Date:** 2026-05-19
 **Status:** active (opens Phase 14 — Per-Company ATS + Companies Catalog). NOTE: the **community-contributable catalog framing in this entry is superseded by D-022** — the catalog is maintainer-curated, not community-PR-contributable (and the project is open source per D-023). The adapter framework + catalog mechanics described here remain accurate.
 
-**Context.** Phase 13 (D-019) shipped six Tier-1 search-aggregator sources. The natural follow-up is **per-company ATS feeds** — Greenhouse / Lever / Ashby / Workable each expose a public JSON job board *per company*, no auth. These cover a different surface from the aggregators: instead of "give me a query, get matching jobs everywhere," it's "give me a company, get all their jobs." Per-company feeds are usually the freshest signal for the company-specific roles a user actually cares about (Anthropic's Greenhouse board has 397 listings as of test; aggregators index a fraction of those).
+**Context.** Phase 13 (D-019) shipped six Tier-1 search-aggregator sources. The natural follow-up is **per-company ATS feeds** — Greenhouse / Lever / Ashby / Workable each expose a public JSON job board _per company_, no auth. These cover a different surface from the aggregators: instead of "give me a query, get matching jobs everywhere," it's "give me a company, get all their jobs." Per-company feeds are usually the freshest signal for the company-specific roles a user actually cares about (Anthropic's Greenhouse board has 397 listings as of test; aggregators index a fraction of those).
 
-The operator's strategic insight when scoping Phase 14: **the company list itself should be a community-contributable catalog.** That converts "Job Matrix supports company X" from a code change into a GitHub PR. The contributor magnet that `awesome-*` lists provide. *That mechanism is the feature*, not a side-effect of the adapters.
+The operator's strategic insight when scoping Phase 14: **the company list itself should be a community-contributable catalog.** That converts "Job Matrix supports company X" from a code change into a GitHub PR. The contributor magnet that `awesome-*` lists provide. _That mechanism is the feature_, not a side-effect of the adapters.
 
 **Decision.** Adopt this shape:
 
 - **Catalog file at the repo root: `companies-catalog.yaml`.** Hand-edited, community-contributed via PR. Top-level location for discoverability — finding it should not require navigating the docs tree.
-- **YAML over JSON** because YAML allows inline comments. Contributors can explain *why* their entry is right (where they found the slug, when they verified it works). Adds `js-yaml` as a small runtime dependency.
+- **YAML over JSON** because YAML allows inline comments. Contributors can explain _why_ their entry is right (where they found the slug, when they verified it works). Adds `js-yaml` as a small runtime dependency.
 - **Schema:** each entry is `{ name, slug, ats, boardId, website?, tags[]? }`. `slug` is the stable identifier the app uses for de-duplication and DB references; `boardId` is the per-ATS identifier in the URL (e.g. `anthropic` in `boards-api.greenhouse.io/v1/boards/anthropic/jobs`). Often `slug === boardId` but not always — separate fields keep us flexible.
 - **Validation:** Zod schema, parsed at server boot. Invalid entries log a warning and are skipped (never crash the app — a bad entry from a contributor should not kill the deploy). The catalog is read once and cached in memory; `pnpm dev` restart picks up edits.
 - **Three ATS adapters in v1:** Greenhouse, Lever, Ashby. Each implements the same `JobBoardAdapter` interface in `server/sources/ats/`. **Workable is deferred** — its public API is fragmented per-company (some sites use `apply.workable.com/api/v3/accounts/{slug}/jobs`, others use a different feed entirely, some have no public surface). Not worth shipping until we have a real use case forcing a specific company.
@@ -347,11 +359,13 @@ The operator's strategic insight when scoping Phase 14: **the company list itsel
 - **CONTRIBUTING.md flow** dedicated to "Add a company": how to find a company's ATS (look at careers page URL — `boards.greenhouse.io/{slug}`, `jobs.lever.co/{slug}`, `jobs.ashbyhq.com/{slug}`), how to find the boardId, schema fields, the PR template (one company per PR for easy review).
 
 **What we explicitly skipped.**
+
 - **Per-company health telemetry.** The existing `scraper_health` table is keyed by platform string; adding `(ats, boardId)` granularity is a parallel table or a relaxed key — neither is worth building until we see real failure patterns. For v1: errors log to console, the aggregate scan history's per-platform breakdown surfaces "companies returned N jobs" as a single line.
 - **Catalog UI editing.** No "add a company through the app" affordance. The PR flow is the affordance — discoverability + review built in.
 - **A bigger seed list.** I tried to bootstrap with well-known companies; most aren't on the slugs I guessed (`openai`, `notion`, `figma`, `shopify`, `ramp` — all wrong on Greenhouse or Lever). Rather than ship guesses, the seed is 5 verified entries (anthropic, gitlab, cloudflare on Greenhouse; netlify on Lever; posthog on Ashby). Contributors fill the rest. Better an honest small list than a wrong long one.
 
 **Consequences.**
+
 - One global YAML file under source control. Conflicts are rare (PR per company) but when they happen, normal merge resolution applies.
 - Adding a company is a PR with a one-paragraph diff. CI should validate the new entry parses + the live API endpoint returns at least one job, so we catch bad slugs at PR time. (CI hook is a Phase 14 follow-up, not blocking.)
 - The Companies sub-tab is the first UI surface that's purely catalog-driven — its content scales with the YAML file size, not with the app. Worth virtualising the list if the catalog hits ~500 entries; not needed at v1 scale.
@@ -369,7 +383,7 @@ The operator's strategic insight when scoping Phase 14: **the company list itsel
 **Decision.** Ship the Quick Fill as a **static curated dataset, no LLM at runtime, append-only merge into `user_job_titles`**. Specifically:
 
 - Single TypeScript data file at `shared/work-style-suggestions.ts` holds all categories × levels × titles + the short level descriptions. Same shape as the Phase 14 companies-catalog: easy to PR-contribute, easy to extend, no DB schema change.
-- Four categories at v1: **Introvert-friendly · Extrovert-friendly · Hands-on / physical · Entry-level / no degree**. Each has three levels (Low / Medium / High); each level holds 8 hand-picked job titles plus a one-line description framed by *the work*, not the person.
+- Four categories at v1: **Introvert-friendly · Extrovert-friendly · Hands-on / physical · Entry-level / no degree**. Each has three levels (Low / Medium / High); each level holds 8 hand-picked job titles plus a one-line description framed by _the work_, not the person.
 - The UI is **one reusable component** (`WorkStyleQuickFill.tsx`) — a dialog with a category picker, a level slider, a checkable title list (all pre-checked by default), and an Apply button. The dialog is rendered behind a "Quick fill ▾" button on the Preferences → Job titles sub-tab AND as an in-line panel on Onboarding step 2 (Target Positions). Same component, two entry points.
 - **Apply behaviour:** case-insensitive merge into existing `user_job_titles`. Existing rows are untouched (their `isActive` state preserved); newly added titles default `isActive: true`. No surprise deletions; no overwrite.
 - **No LLM, no API call, no telemetry.** The data file is the only source of truth. Adding categories is a PR with a one-paragraph diff.
@@ -381,16 +395,18 @@ Rejected — **Replace existing titles on Apply.** Even with confirmation, this 
 Rejected — **Onboarding becomes a separate step.** Adding a 6th step inflates the perceived setup cost. The Quick Fill panel slots inside the existing step 2 (Target Positions) so the step count stays at 5.
 
 **Architectural fit.**
+
 - Reinforces the README's "noise + repetition + I-don't-know-what-to-type" framing — the third bullet in "Why Job Matrix exists" is exactly the problem this solves.
 - Preserves Agentic Accessibility — every interaction in the dialog gets a `data-agent-*` hook so a browser agent can drive it on the user's behalf (same surface humans see).
 - Preserves D-002 (local-first, BYO-key): the dataset ships in the bundle, no server call.
 - Zero ongoing cost — no LLM tokens spent, no API quota burned. Static asset, free forever.
 
 **Consequences.**
+
 - New file `shared/work-style-suggestions.ts` becomes the canonical curated dataset. Lock-step contributor flow with the Phase 14 catalog. CONTRIBUTING.md gets a paragraph (Phase 15 follow-up).
 - `JobPreferences.tsx` and `Onboarding.tsx` get small additive edits (new button + dialog render). No refactor.
 - AGENT_HOOKS_REFERENCE.md gets ~5 new entries (`open-work-style-quickfill`, `select-work-style-category-{id}`, `set-work-style-level-{level}`, `toggle-suggested-title-{slug}`, `apply-work-style-suggestions`).
-- Future categories slot in without code changes. Operator-requested categories at v1 are the four above; *Creative*, *Numbers / analytical*, *Outdoors*, *Remote-only* are likely v1.1 candidates.
+- Future categories slot in without code changes. Operator-requested categories at v1 are the four above; _Creative_, _Numbers / analytical_, _Outdoors_, _Remote-only_ are likely v1.1 candidates.
 - No DB migration — `user_job_titles` is unchanged.
 
 ---
@@ -414,6 +430,7 @@ The operator also clarified a standing point that supersedes D-020's framing: **
 **Verification caveat that shapes the population sweep.** Probing 18 logged Workday candidates with the naive derivation (tenant = first subdomain label, site = first path segment) passed **11**; 7 returned HTTP 422/500. The failures aren't the adapter — they're that some tenants use a cxs tenant that differs from the subdomain, or require extra `appliedFacets`, or expose the board under a different site path than the careers URL suggests. **Consequence:** the 186-company population is NOT a bulk-derive — each entry must be verified live (POST returns ≥1 job) before landing, exactly like the Greenhouse/Lever/Ashby sweep. The adapter ships with **11 verified seed entries**; the remaining ~175 are a follow-on catalog-builder sweep.
 
 **Consequences.**
+
 - Four ATSes now supported; the catalog `ats` enum and the UI badge map (Workday → amber) grow by one. `final-catalog.yaml` sort order extends to greenhouse → lever → ashby → workday.
 - Schema is no longer uniform — Workday entries carry `host` + `site`. Accepted: the alternative (cramming host+site into a delimited `boardId` string) would be less honest and harder to validate. Explicit optional fields with a conditional requirement is the cleaner schema.
 - The endpoint-health-check tooling the operator plans (periodic re-verification of catalog endpoints) now has a fourth endpoint shape to probe; the `ATS_ENDPOINTS` map documents all four for exactly that use.
@@ -427,12 +444,14 @@ The operator also clarified a standing point that supersedes D-020's framing: **
 **Status:** active (supersedes D-007; resolves the open question in D-003 and the Phase 12 strategic block)
 
 **Context.** D-007 (2026-05-16) paused the public release to evaluate a commercial direction. After building out the product (Phases 10–16) and weighing it, the operator made the call: the commercial path isn't worth it. The reasoning is architectural, not just effort:
+
 - The local-first / single-user / BYO-key model (D-002) is the legal shield — scraping happens on the user's machine, the ToS exposure is theirs. But that same property makes the product nearly unmonetizable: no server means no license enforcement (a paid local app is trivially copied), and the only "real" commercial shape is a hosted SaaS, which breaks the shield by making us the scraper operator. The architecture that protects us is structurally anti-commercial.
 - The project's actual value is as a reference implementation of the **Agentic Accessibility** thesis (`VISION.md`) — a paradigm meant for others to adopt. That is maximized public, strangled if locked.
-- We are not even publishing the scraper: JobSpy (the scraping engine) is already a popular public OSS project maintained by others. Job Matrix is a dashboard that *consumes* it alongside legitimate APIs (Adzuna, USAJobs, the ATS catalog). We distribute aggregation + filtering UI, not scraping tech.
+- We are not even publishing the scraper: JobSpy (the scraping engine) is already a popular public OSS project maintained by others. Job Matrix is a dashboard that _consumes_ it alongside legitimate APIs (Adzuna, USAJobs, the ATS catalog). We distribute aggregation + filtering UI, not scraping tech.
 - Going non-commercial removes the entire IP-attorney / license-swap / pricing / "AI-built hurts sales" pre-flight. The "made by AI" framing flips from liability to the centerpiece of the story.
 
 **Decision.** Open-source Job Matrix.
+
 - **Destination: a public GitHub repo under the existing MIT license.** The
   repository remains private until the operator explicitly performs that
   visibility change. No license change is needed. (AGPL was considered to block
@@ -447,6 +466,7 @@ The operator also clarified a standing point that supersedes D-020's framing: **
 **Architectural red line preserved.** Local-first / single-user / BYO-key (D-002) is unchanged. Open-sourcing does not add a backend, a hosted scraper, or any central infrastructure.
 
 **Consequences.**
+
 - **Phase 12 (Legal & Commercial Pre-flight) is closed as "resolved: open source."** Its sub-items (IP consult, license decision, pricing, distribution channel, commercial "made by AI" rewrite) are moot.
 - The strategic-direction section of `ROADMAP.md`, the "stay private" framing, and the commercial musings throughout the internal docs are now stale and need a stance-alignment pass (a doc audit, this session).
 - The deferred GitHub Pages demo (Phase 8 / D-010) becomes a straightforward OSS marketing/demo surface again (sanitized snapshot, never live-scraping from our infra).
@@ -602,3 +622,37 @@ dependencies.
 purposes; commercial use is prohibited. JobSpy remains separately licensed
 under MIT. The public repository is republished from a clean root commit so the
 published Git history contains only the noncommercial edition.
+
+---
+
+## D-028 — Retire NotebookLM and rebuild Job Matrix as a hosted, account-based product
+
+**Date:** 2026-08-16
+**Status:** active (supersedes the local-only distribution boundary in D-002,
+D-023, D-024, and D-025; D-027 licensing remains unchanged)
+
+**Context.** The NotebookLM audio, infographic, slide, and generated briefing
+features were experiments rather than part of Job Matrix's durable value. The
+product's useful center is job discovery, filtering, application tracking, and
+an interface that both people and their chosen agents can use. Keeping that
+center local-only prevents it from functioning as a real public product.
+
+**Decision.** Remove NotebookLM from the current application and make the next
+architecture hosted and account-based. The final published version containing
+the experiment remains recoverable at Git commit `742ed69`. Existing local
+briefing tables, rows, and media are not destructively migrated or deleted; the
+current runtime simply stops reading, generating, or serving them.
+
+The hosted product will let each person optionally connect a supported AI
+provider with their own key. A person without a key can still search, organize,
+and track jobs; only AI-assisted features are unavailable. Provider keys are
+per-user secrets: encrypted before persistence, never returned in full, never
+logged, and removable or replaceable by their owner. Provider-side billing
+limits remain the user's responsibility; Job Matrix may add its own request
+ceilings but must not pretend those replace a provider budget.
+
+**Consequences.** Authentication, tenant isolation, hosted persistence, secret
+management, background work, source permissions, and a new privacy/threat model
+must land before the service is exposed publicly. The local SQLite build remains
+a development reference during that conversion, not the final distribution
+model. PolyForm Noncommercial 1.0.0 and contributor ownership remain unchanged.

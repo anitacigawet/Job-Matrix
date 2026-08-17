@@ -10,7 +10,6 @@ import { AppearanceProvider } from "./contexts/AppearanceContext";
 import { DebugModeProvider } from "./contexts/DebugModeContext";
 import { TopNav } from "./components/TopNav";
 import { SubNav, SubNavProvider } from "./components/SubNav";
-import { BriefingsBackendSync } from "./components/BriefingsBackendSync";
 import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
 
 const Landing = lazy(() => import("./pages/Landing"));
@@ -20,27 +19,29 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const TrackedJobsPersonalized = lazy(() =>
   import("./pages/TrackedJobsPersonalized").then(module => ({
     default: module.TrackedJobsPersonalized,
-  })),
+  }))
 );
 const AppliedJobs = lazy(() =>
-  import("./pages/AppliedJobs").then(module => ({ default: module.AppliedJobs })),
+  import("./pages/AppliedJobs").then(module => ({
+    default: module.AppliedJobs,
+  }))
 );
 const ConfigDebug = lazy(() =>
-  import("./pages/ConfigDebug").then(module => ({ default: module.ConfigDebug })),
+  import("./pages/ConfigDebug").then(module => ({
+    default: module.ConfigDebug,
+  }))
 );
 const JobPreferences = lazy(() =>
-  import("./pages/JobPreferences").then(module => ({ default: module.JobPreferences })),
+  import("./pages/JobPreferences").then(module => ({
+    default: module.JobPreferences,
+  }))
 );
 const Analytics = lazy(() =>
-  import("./pages/Analytics").then(module => ({ default: module.Analytics })),
+  import("./pages/Analytics").then(module => ({ default: module.Analytics }))
 );
 const SettingsPage = lazy(() =>
-  import("./pages/Settings").then(module => ({ default: module.SettingsPage })),
+  import("./pages/Settings").then(module => ({ default: module.SettingsPage }))
 );
-const BriefingsPage = lazy(() =>
-  import("./pages/Briefings").then(module => ({ default: module.BriefingsPage })),
-);
-
 function RouteLoading() {
   return (
     <div className="min-h-screen flex items-center justify-center text-muted-foreground gap-2">
@@ -53,7 +54,11 @@ function RouteLoading() {
 // The route gate follows the database-backed user returned by auth.me. A new
 // context is created for every request, so onboarding completion and factory
 // reset changes become visible immediately.
-function RequireOnboardingComplete({ component: Component }: { component: ComponentType }) {
+function RequireOnboardingComplete({
+  component: Component,
+}: {
+  component: ComponentType;
+}) {
   const [, setLocation] = useLocation();
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
 
@@ -70,7 +75,11 @@ function RequireOnboardingComplete({ component: Component }: { component: Compon
   return <Component />;
 }
 
-function RequirePendingOnboarding({ component: Component }: { component: ComponentType }) {
+function RequirePendingOnboarding({
+  component: Component,
+}: {
+  component: ComponentType;
+}) {
   const [, setLocation] = useLocation();
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
 
@@ -87,15 +96,28 @@ function RequirePendingOnboarding({ component: Component }: { component: Compone
   return <Component />;
 }
 
-const GuardedOnboarding = () => <RequirePendingOnboarding component={Onboarding} />;
+const GuardedOnboarding = () => (
+  <RequirePendingOnboarding component={Onboarding} />
+);
 const GuardedHome = () => <RequireOnboardingComplete component={Platforms} />;
-const GuardedJobs = () => <RequireOnboardingComplete component={TrackedJobsPersonalized} />;
-const GuardedApplied = () => <RequireOnboardingComplete component={AppliedJobs} />;
-const GuardedPreferences = () => <RequireOnboardingComplete component={JobPreferences} />;
-const GuardedAnalytics = () => <RequireOnboardingComplete component={Analytics} />;
-const GuardedSettings = () => <RequireOnboardingComplete component={SettingsPage} />;
-const GuardedConfigDebug = () => <RequireOnboardingComplete component={ConfigDebug} />;
-const GuardedBriefings = () => <RequireOnboardingComplete component={BriefingsPage} />;
+const GuardedJobs = () => (
+  <RequireOnboardingComplete component={TrackedJobsPersonalized} />
+);
+const GuardedApplied = () => (
+  <RequireOnboardingComplete component={AppliedJobs} />
+);
+const GuardedPreferences = () => (
+  <RequireOnboardingComplete component={JobPreferences} />
+);
+const GuardedAnalytics = () => (
+  <RequireOnboardingComplete component={Analytics} />
+);
+const GuardedSettings = () => (
+  <RequireOnboardingComplete component={SettingsPage} />
+);
+const GuardedConfigDebug = () => (
+  <RequireOnboardingComplete component={ConfigDebug} />
+);
 
 function Router() {
   return (
@@ -109,7 +131,6 @@ function Router() {
         <Route path={"/preferences"} component={GuardedPreferences} />
         <Route path={"/analytics"} component={GuardedAnalytics} />
         <Route path={"/settings"} component={GuardedSettings} />
-        <Route path={"/briefings"} component={GuardedBriefings} />
         <Route path={"/config-debug"} component={GuardedConfigDebug} />
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />
@@ -188,7 +209,6 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <KeyboardShortcuts />
-            <BriefingsBackendSync />
             <AppShell />
           </TooltipProvider>
         </DebugModeProvider>
