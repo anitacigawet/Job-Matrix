@@ -1,3 +1,5 @@
+![Job Matrix title rendered as red balloon letters rising from an open box against warm Christmas lights](docs/images/job-matrix-banner.png)
+
 # Job Matrix
 
 **A job-search workspace that finds openings across selected public job
