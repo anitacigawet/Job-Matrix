@@ -146,6 +146,7 @@ const BARE_ROUTES = new Set(["/onboarding"]);
 
 function AppShell() {
   const [location] = useLocation();
+  const isShowroom = import.meta.env.VITE_SHOWROOM_MODE === "true";
   if (BARE_ROUTES.has(location)) {
     return (
       <main>
@@ -156,6 +157,22 @@ function AppShell() {
   return (
     <SubNavProvider>
       <div className="page-shell">
+        {isShowroom && (
+          <aside
+            aria-label="Showroom mode"
+            data-agent-status="showroom-mode"
+            style={{
+              padding: "10px 24px",
+              textAlign: "center",
+              color: "#d7f7ee",
+              background: "#12372f",
+              borderBottom: "1px solid #2f6e5f",
+              fontSize: 13,
+            }}
+          >
+            <strong>Interactive showroom:</strong> this is the real Job Matrix interface using deterministic fictional data. Actions run only in this browser and reset when the page reloads; no scraper, AI provider, upload, account, email, or payment service is contacted.
+          </aside>
+        )}
         <TopNav />
         <SubNav />
         <main className="page-content">

@@ -27,12 +27,12 @@ export function Analytics() {
 
   // Calculate application pipeline stats
   const pipelineStats = {
-    applied: appliedJobs?.filter((j: any) => j.status === "applied").length || 0,
-    interview: appliedJobs?.filter((j: any) => j.status === "interview").length || 0,
-    offer: appliedJobs?.filter((j: any) => j.status === "offer").length || 0,
-    accepted: appliedJobs?.filter((j: any) => j.status === "accepted").length || 0,
-    rejected: appliedJobs?.filter((j: any) => j.status === "rejected").length || 0,
-    ghosted: appliedJobs?.filter((j: any) => j.status === "ghosted").length || 0,
+    applied: appliedJobs?.filter((j: any) => j.applicationStatus === "applied").length || 0,
+    interview: appliedJobs?.filter((j: any) => j.applicationStatus === "interview").length || 0,
+    offer: appliedJobs?.filter((j: any) => j.applicationStatus === "offer").length || 0,
+    accepted: appliedJobs?.filter((j: any) => j.applicationStatus === "accepted").length || 0,
+    rejected: appliedJobs?.filter((j: any) => j.applicationStatus === "rejected").length || 0,
+    ghosted: appliedJobs?.filter((j: any) => j.applicationStatus === "ghosted").length || 0,
   };
   const totalApplied = appliedJobs?.length || 0;
 

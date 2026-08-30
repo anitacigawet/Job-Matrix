@@ -708,3 +708,46 @@ predeclared daily allowance; it cannot silently enable paid proxies or a
 usage-priced scraping service. Public launch still requires the separate VPS,
 Cloudflare Access policies, tunnel routes, backup policy, and a rendered hosted
 smoke test.
+
+---
+
+## D-030 — Public Job Matrix becomes a deterministic functional showroom
+
+**Date:** 2026-08-29
+**Status:** active (supersedes D-028 and D-029 as the current public operating
+model; preserves their implementation as a dormant future option)
+
+**Context.** The ScootSolute portfolio uses a separate public demonstration and
+source repository for each project. Six project subdomains already run the real
+project interface against deterministic fictional data. Job Matrix was the
+outlier: its subdomain routed to an invite-only hosted service behind Cloudflare
+Access. Operating a multi-user product is not the current portfolio goal.
+
+**Decision.** `jobmatrix.scootsolute.org` will serve a static, interactive
+showroom built from the real Job Matrix React application. The routes,
+components, layout, human controls, and `data-agent-*` hooks remain the product
+surface. A showroom-only tRPC link replaces the network transport with
+deterministic fictional browser-side state. The primary search, filter, score,
+queue, guided-application, application-pipeline, preference, source, analytics,
+and settings workflows must remain clickable.
+
+The showroom makes no scraper, source API, AI-provider, upload, account, email,
+Slack, notification, payment, or employer-submission call. It is served under a
+`connect-src 'none'` policy, labels the fictional state, and resets on reload.
+Every showroom page ends with a link to the GitHub repository for source and
+download, plus a return to the portfolio.
+
+The hosted implementation is not deleted. Before production routing changes,
+archive its database, environment, deployed tree, and service configuration so
+the exact implementation can be restored later. Cloudflare Access and the
+dedicated port-3000 service are removed from the public Job Matrix path only
+after an operator-approved cutover. The separate owner console remains private
+and unchanged unless a later decision explicitly retires it.
+
+**Consequences.** The local installation is the usable product; the public
+subdomain demonstrates it without collecting visitor data or operating a job
+service. Hosted admission, tenant isolation, encrypted keys, central limits,
+and owner-control code remain historical/current source, but are not claims
+about the public showroom. Restoring hosted operation requires a new security,
+privacy, source-policy, and launch decision. README cleanup is intentionally
+paused.

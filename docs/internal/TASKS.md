@@ -9,7 +9,49 @@ implementation item exists under `ACTIVE`, the operator's “continue” cue pic
 it up. Items labeled operator-gated require the stated live credentials,
 provider interaction, or operator judgment.
 
-Last updated: 2026-08-16.
+Last updated: 2026-08-29.
+
+---
+
+## ACTIVE — Phase 19: Public deterministic showroom
+
+The public subdomain is changing from an invite-only hosted service to a static,
+interactive showroom. The showroom uses the real React interface and semantic
+agent hooks, but replaces the tRPC network transport with deterministic
+fictional browser-side state. The hosted server implementation remains in Git
+and its production state must be archived before the public route changes. See
+`DECISIONS.md` D-030.
+
+- [x] **D19.1** — Audit the live portfolio and all seven project subdomains.
+  Confirmed that the other six projects already use deterministic functional
+  showrooms; Job Matrix is the only project still behind a dedicated hosted
+  service and Cloudflare Access.
+- [x] **D19.2** — Add `VITE_SHOWROOM_MODE=true` and a browser-local tRPC link.
+  The real pages, routes, components, and `data-agent-*` hooks remain in use.
+  Fixture actions mutate only in-memory fictional state and make no scraper,
+  AI-provider, upload, email, account, payment, or application-submission call.
+- [x] **D19.3** — Populate the primary workflow with fictional jobs, profile,
+  sources, search history, application pipeline, notes, response inbox, and
+  settings. Scan, filter, score, queue, guided-application, applied-status,
+  preference, preset, source-toggle, and settings actions have local handlers.
+- [x] **D19.4** — Fix the real Analytics pipeline counter to read
+  `applicationStatus`, matching the persisted application schema and the
+  Applied page.
+- [x] **D19.5** — Add a showroom transport test proving scan → filter → score →
+  apply works while `fetch` is disabled. `pnpm check` and the isolated test pass.
+- [x] **D19.6** — Build the static artifact and add it to the shared showroom
+  server locally. Add a uniform bottom exit on every showroom with the correct
+  GitHub repository/download link and a return to the portfolio. Server checks
+  pass for all seven hosts with `connect-src 'none'`.
+- [ ] **D19.7** — Archive the current Job Matrix production service, database,
+  environment, and unit configuration; then switch the public tunnel route from
+  port 3000 to the shared showroom on port 3300 and remove the Job Matrix Access
+  gate. _(operator-gated production change; exact proposal and approval required)_
+- [ ] **D19.8** — After cutover, repeat the complete browser walkthrough over
+  public HTTPS and verify the GitHub exit on deep routes. _(operator-gated)_
+
+README cleanup is intentionally paused until the operator chooses its next
+public structure.
 
 ---
 

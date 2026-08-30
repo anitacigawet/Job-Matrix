@@ -4,7 +4,7 @@ This roadmap describes the current product direction. The detailed historical
 phase ledger remains in [`TASKS.md`](TASKS.md), and architectural decisions are
 recorded in [`DECISIONS.md`](DECISIONS.md).
 
-Last updated: 2026-08-16.
+Last updated: 2026-08-29.
 
 ## Where the project is
 
@@ -14,10 +14,12 @@ with rules or an optional AI provider, and carry promising roles through a
 guided application workflow. Its React interface includes semantic hooks so a
 person's chosen browser agent can use the same surfaces they do.
 
-The current runtime is still a loopback-only, single-user development build.
-D-028 changes the destination to a hosted, account-based product. The previous
-NotebookLM audio, infographic, slide, and text-generation experiment has been
-retired; its final form is preserved in Git at `742ed69`.
+The downloadable project remains a local, single-user application. Its public
+subdomain is a static interactive showroom: the same React interface and
+workflows run against deterministic fictional browser-side state, with no live
+scraping, AI, uploads, accounts, email, payments, or submission side effects.
+The previous hosted implementation is preserved as a restorable future option,
+not the current public operating model. See D-030.
 
 ## Product center
 
@@ -27,79 +29,58 @@ control away from the person doing it:
 - gather jobs from sources that permit the product's mode of access;
 - make filtering and scoring understandable, with AI assistance optional;
 - keep search criteria, saved jobs, application answers, and pipeline history
-  inside a clear personal account boundary;
+  on the person's own installation;
 - let a person's chosen agent navigate and help through the same accessible
   interface;
 - keep the final employer submission as a human approval boundary.
 
-The source code remains visible under PolyForm Noncommercial 1.0.0 as a
-transparency and noncommercial modification surface. The hosted service, not a
-local installation guide, is intended to become the normal way people use the
-product.
+The source code remains visible under PolyForm Noncommercial 1.0.0. People who
+want to use Job Matrix leave the showroom for the GitHub repository and run the
+application on their own computer. README and release-packaging cleanup will be
+specified separately.
 
-## Hosted architecture sequence
+## Current sequence
 
-### 1. Identity and ownership
+### 1. Functional public showroom
 
-Add account authentication and session management, replace the constant local
-user, and prove that every user-owned row and object is scoped by account. This
-is the first public-hosting prerequisite; the current server stays loopback-only
-until it is complete.
+Keep the real routes, components, visual hierarchy, and Agentic Accessibility
+hooks. Substitute only the tRPC transport with deterministic fictional
+browser-side state. Every important public workflow must be clickable and must
+reset cleanly on reload.
 
-### 2. Hosted data and private files
+### 2. Hard external-side-effect boundary
 
-Move relational state from the sql.js file to a managed database designed for
-concurrent users. Move résumé assets to private object storage with short-lived,
-authorized access. Define backup, export, deletion, and migration behavior at
-the same boundary.
+The static host blocks network connections with CSP. Showroom actions do not
+scrape, invoke AI providers, store uploads, connect Gmail or Slack, create
+accounts, send notifications, charge money, or submit applications. The UI must
+label fictional data and simulated actions without replacing the real product
+surface.
 
-### 3. Bring-your-own AI key vault
+### 3. Repository handoff
 
-Keep Gemini, OpenAI, and DeepSeek behind the existing provider-neutral layer.
-AI stays optional. A user's key is encrypted before storage, belongs only to
-that account, is never rendered or logged in full, and can be tested, replaced,
-or deleted. Job Matrix can enforce request ceilings and explain provider quota
-errors; actual billing limits are configured with the provider.
+Every showroom route ends with a clear GitHub link where a visitor can inspect
+or download the source, plus a return to the portfolio. Installation and release
+presentation will be refined only after the paused README decision resumes.
 
-### 4. Background work
+### 4. Preserve the hosted option without operating it
 
-Replace in-process timers with durable per-user jobs. Scans and AI passes need
-idempotency, cancellation, progress, bounded retries, concurrency controls, and
-source/provider rate limits so one account cannot degrade another.
+Archive the current production database, environment, service unit, and deployed
+tree before the subdomain cutover. Keep the hosted account, encryption,
+admission, and owner-control code in Git. Restoring a hosted product later is a
+new product and security decision, not a hidden part of the showroom.
 
-### 5. Hosted source policy
+### 5. Local application quality
 
-Review every source before it is enabled from central infrastructure. Official
-APIs and public ATS endpoints remain candidates when their current terms permit
-the use. Best-effort JobSpy scraping of large job sites is not carried into the
-hosted service without explicit permission or a licensed data path. The public
-repository may preserve historical adapter code only when doing so is legally
-and operationally honest.
-
-### 6. Integration redesign
-
-The local Gmail callback, local filesystem secrets, desktop notifications,
-factory reset, and configuration-debug surfaces cannot simply be exposed on the
-web. Each is either rebuilt around account-scoped hosted security or retired.
-Email-response monitoring should prefer a narrowly scoped forwarding or
-provider-approved design rather than asking every user for broad mailbox access.
-
-### 7. Agent surface and launch gate
-
-Preserve and test the semantic browser-agent hooks while accounts are added.
-After the human product boundary is stable, expose a small authenticated API or
-MCP surface only where it improves reliability without creating a second hidden
-product. Before launch, complete the hosted threat model, abuse controls,
-privacy/export/delete flows, monitoring, incident procedures, and domain/deploy
-review.
+Continue testing the actual local application and the static showroom from the
+same source. A showroom-only adapter must not fork the visual product or create
+an alternate mock interface.
 
 ## Explicitly retired
 
 - NotebookLM session-cookie authentication and unofficial bridge code.
 - Audio-overview podcasts, generated infographics/slides, and the briefing inbox.
 - Automatic daily or weekly briefing generation.
-- The assumption that local-only distribution is the product's permanent legal
-  or operational boundary.
+- The assumption that the public subdomain must operate the hosted product.
 
 Existing local briefing rows and files are legacy user data. Conversion work
 must not silently delete them; they can be archived or removed only through an
