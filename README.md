@@ -1,129 +1,111 @@
 ![Job Matrix title rendered as red balloon letters rising from an open box against warm Christmas lights](docs/images/job-matrix-banner.png)
 
-# Job Matrix
+## What is this?
 
-**A job-search workspace that finds openings across selected public job
-sources, filters them against what actually fits your life, and helps you carry
-promising roles from discovery through application.**
+Job Matrix consolidates job listings from Adzuna, USAJobs, Jooble, The Muse,
+Remotive, RemoteOK, Indeed, and LinkedIn in an organized and easy-to-read manner
+for both humans and AI agents.
 
-You tell Job Matrix what kind of work fits your circumstances. It searches,
-removes clear mismatches, ranks the remaining jobs, and keeps your applications
-organized in one place. When you want help, a browser assistant can
-work through the same interface you see while leaving final decisions with you.
+You can tell Job Matrix what work would best fit your specific circumstances,
+and it will automatically search and rank jobs on your behalf while keeping all
+of your applications organized in one consolidated place. This can be completed
+automatically by an AI with “personal intelligence” (context) about your
+specific career aspirations and situation, or by hand.
 
 ![A populated Job Matrix dashboard showing its scan, filter, and scoring workflow beside ranked job matches](docs/screenshots/dashboard.png)
 
-_The dashboard turns a pile of listings into a visible workflow: search, filter,
-score, review, and apply._
-
-> **Beta:** The repository remains runnable locally while the account-based
-> hosted edition is prepared. Job sources and AI providers can change
-> independently of the app, so the interface reports source health instead of
-> promising permanent coverage.
+_Search, filter, score, and track jobs from one dashboard._
 
 ---
 
-## Who this is for
+## Who is this for?
 
-You might be:
+- **Individuals wanting to speed up their job search.** Search from one
+  consolidated place while removing obvious mismatches and reducing stale
+  listings (where applicable).
+- **Those constantly struggling with “filters” on job-search websites.**
+  Whether it is location, pay, education, or experience, you should not have to
+  repeat the specific parameters of the job you are looking for over and over.
+- **Someone who wants AI to prepare forms for them.** The website is built to
+  be easily read and operated by in-browser AI agents such as OpenAI and Claude
+  (and others). If an agent has your personal context, it can prepare forms and
+  set everything up for you autonomously (with supervision recommended). If it
+  does not have that context, simply say, “Hey, set this up for me and walk me
+  through it.”
 
-- **Someone whose job search has become a second job** and wants one place to
-  search, remove obvious mismatches, and remember what happened next.
-- **A job seeker with real constraints**—location, pay, education, experience,
-  schedule, or work style—who is tired of boards treating relevance as an
-  afterthought.
-- **Someone who wants AI assistance without surrendering the application.** A
-  browser assistant can prepare forms, but it stops before the employer's final
-  Submit button and waits for you.
-- **A developer or accessibility-minded designer** interested in software that
-  a person and their trusted agent can operate through the same interface.
+![Job Matrix welcome screen explaining search, fit, human approval, and local data before setup](docs/screenshots/welcome.png)
 
-If any of that sounds familiar, keep reading.
+_The setup screen explains the workflow before you enter any information._
 
 ---
 
 ## What it actually does
 
-1. **You describe the work that fits.** Add target roles, locations, pay needs,
-   education, experience, and any deal-breakers that matter to you.
-2. **You choose where to look.** Search selected public job feeds and
-   JobSpy-backed sources.
-3. **Job Matrix gathers and deduplicates listings.** The same opening appearing
-   on multiple sources is grouped instead of becoming more noise.
-4. **Rules remove clear mismatches.** Optional AI filtering can evaluate the
-   listing against your saved profile and flag scams, MLM language, education
-   conflicts, experience conflicts, location restrictions, and pay problems.
-5. **The remaining jobs are ranked.** Fit scoring gives you a starting point for
-   review; it does not make the decision for you.
-6. **You carry promising jobs forward.** Save them to an application queue,
+1. **Add preset filters that actually stick.** Job Matrix saves your target
+   roles, locations, expected salary/pay, education, and experience. Presets
+   keep repeatable combinations of roles, location, radius, work arrangement,
+   pay, and sources. The app does not erase them between searches or make you
+   enter them again for each platform.
+2. **Utilize multiple sources.** Job Matrix can search Adzuna, USAJobs, Jooble,
+   The Muse, Remotive, RemoteOK, Indeed, and LinkedIn. It also keeps toggleable
+   JobSpy connectors for Glassdoor, ZipRecruiter, and Google Jobs so they can be
+   re-tested after upstream fixes, but those three are not currently reliable.
+3. **Reduce stale and duplicate listings.** Job Matrix applies posting-age
+   limits where a source supports them, but it does not claim to identify ghost
+   jobs. Exact cross-source duplicates are dropped during collection. Other
+   likely duplicates are grouped and hidden by default, not deleted from the
+   local database, so the same opening does not become unnecessary visual
+   harassment. You can still reveal every listing when you want to compare
+   sources.
+4. **Remove obvious mismatches.** Optional filtering checks listings against
+   your location and work arrangement, education, experience, and expected
+   salary/pay. Filtered jobs remain reviewable instead of disappearing without
+   an explanation.
+5. **Rank job searches based on personalization factors.** When AI scoring is
+   enabled, Job Matrix generates a fit score from the information you provide.
+   It is an estimate and starting point for judging your potential readiness for
+   each job, not a decision made for you.
+6. **Long-term tracking.** Save jobs to an application queue,
    track interviews and offers, keep a timeline, and export your records.
-7. **A browser assistant can help with repetitive forms.** Job Matrix prepares
-   a packet from answers you chose to save. The assistant may navigate and fill,
-   but you review the result and personally approve the final submission.
-8. **Optional response monitoring closes the loop.** A read-only Gmail
-   connection in the local edition can recognize likely employer responses and
-   Google Voice email notifications; Slack alerts are optional.
-
-![Job Matrix welcome screen explaining search, fit, human approval, and local data before setup](docs/screenshots/welcome.png)
-
-_The front door explains the bargain before asking for anything: Job Matrix does
-the repetitive work, and the consequential choices stay with you._
 
 ---
 
-## Why this is different from another job board
+## Works with in-browser AI agents
 
-Job Matrix does not own a marketplace of listings and has no incentive to keep
-you scrolling. It is a workspace centered on your search rather than a job
-board's feed.
-
-- **Your working record stays separate.** Hosted accounts are tenant-isolated;
-  the local edition stores its record on the machine running it.
-- **You choose the sources.** Public feeds and optional best-effort JobSpy
-  sources are available without an experimental company-catalog layer.
-- **Your circumstances drive the filter.** Relevance means more than matching a
-  title. Job Matrix can account for the constraints you decide to save.
-- **Assistance remains reviewable.** The browser assistant sees the same
-  interface and application packet you see. There is no hidden AI-only workflow.
-- **Failure is visible.** Source errors and partial scans are reported as errors
-  or partial results rather than being converted into reassuring empty success.
-
-### Agentic Accessibility
-
-Job Matrix was built around a simple idea: software should not need a separate,
-hidden interface before a trusted assistant can help operate it. Interactive
-surfaces carry stable semantic hooks, keyboard navigation, and accessible state
-that benefit browser agents and assistive technology at the same time.
-
-That does not mean the agent owns the workflow. It means the interface is
-legible enough for the person to delegate repetitive steps without losing the
-ability to inspect, interrupt, or decide. The longer argument lives in
-[`VISION.md`](VISION.md).
+Job Matrix labels its buttons, inputs, progress states, and empty states so a
+browser agent can operate the same interface you use. There is no separate
+AI-only page. An agent can help configure a search, review results, and prepare
+a guided application packet. It must stop before the employer's final Submit
+button so you can review and approve the application.
 
 ![The guided application dialog showing saved answers, a final-submit guardrail, and explicit review instructions](docs/screenshots/guided-application.png)
 
-_The guided application packet is the clearest expression of the idea: saved
-answers are visible, missing answers remain questions, and final submission is a
-human approval boundary._
+_Saved answers stay visible, missing answers remain questions, and final
+submission stays under your control._
 
 ---
 
 ## Try it yourself
 
-> **Heads up:** today this is a self-hosted developer tool. You will clone a Git
-> repository and install Node.js and Python dependencies. Some searches work
-> without credentials; AI filtering requires a key from a supported provider.
+The [public Job Matrix showroom](https://jobmatrix.scootsolute.org/) uses the
+real interface and workflows with deterministic fictional data. You can click
+through the search, filtering, scoring, application, preference, source,
+analytics, and settings flows. It resets when the page reloads and does not
+scrape job sites, call an AI provider, send email, upload files, or submit an
+application.
+
+To use Job Matrix with your own searches and records, run it locally.
 
 ### What you will need
 
 - [Node.js](https://nodejs.org/) 22 or newer.
 - [pnpm](https://pnpm.io/installation) 10 or newer.
-- [Python](https://www.python.org/downloads/) 3.9 or newer for optional JobSpy
-  sources.
-- Optional credentials for the job sources and AI provider you choose. The app
-  explains each one under Settings.
+- [Python](https://www.python.org/downloads/) 3.9 or newer if you want to use
+  JobSpy-backed sources. The app creates and repairs its Python environment on
+  the first scraper run.
+- Credentials only for the job sources or optional AI provider you choose.
 
-### Steps
+### Run it locally
 
 ```bash
 git clone https://github.com/anitacigawet/Job-Matrix.git
@@ -133,156 +115,72 @@ pnpm dev
 ```
 
 Open <http://127.0.0.1:3000>. First-run setup creates a local SQLite database
-and asks which roles and locations matter to you. There is no login flow.
+and asks which roles and locations matter to you. There is no login.
 
-`pnpm setup` is safe to run again after a partial installation. For a production
-build:
+For a production build:
 
 ```bash
 pnpm build
 pnpm start
 ```
 
-### AI providers
-
-Job Matrix can call Google Gemini, OpenAI, or DeepSeek directly. You need only
-one provider, and you can change it later under Settings. Provider names and
-default models are configuration rather than promises; use a currently
-available model your account supports.
-
-### Job sources
-
-The invite-only hosted edition begins with bounded Indeed and LinkedIn searches
-only. The broader source layer below remains available to the local edition;
-credentialed source tests and shared server keys are intentionally unavailable
-to hosted accounts.
-
-The source layer has two distinct shapes:
-
-- **Public APIs and feeds:** Adzuna, USAJobs, Jooble, The Muse, Remotive, and
-  RemoteOK. Some work without signup; others require free or partner credentials.
-- **Best-effort scrapers:** optional JobSpy support for Indeed, LinkedIn,
-  Glassdoor, ZipRecruiter, and Google Jobs. These are more fragile and may stop
-  working when the underlying sites change or block automated requests.
-
-Live results matter more than a README timestamp. Check **Platforms → Health &
-telemetry** for what this installation has actually observed.
+Job Matrix supports Google Gemini, OpenAI, and DeepSeek directly. AI is
+optional; search, organization, and application tracking still work without an
+AI provider.
 
 ---
 
 ## Data and privacy
 
-The repository is the transparent development version of the hosted product
-and can still be run locally.
+The public showroom uses fictional information stored only in the current
+browser session. Its network policy blocks outgoing connections, and reloading
+the page resets it.
 
-**Stored by the edition you use:** the local edition keeps its database on your
-computer and listens only on `127.0.0.1`. The hosted edition separates every
-account's profile, listings, and application record; provider keys are encrypted
-before persistence and are never returned in full.
-
-**Sent when you ask for it:**
-
-- Search terms and locations go to the job sources you enable.
-- Listing text and relevant profile criteria go to your selected AI provider
-  when you request filtering or scoring.
-- Résumé text is included when you explicitly prepare a guided application
-  packet.
-- A plausibly job-related email may go to the selected provider when local rules
-  cannot classify it confidently. Unrelated mail is discarded before that step.
-- Matched response details go to Slack only when you configure Slack alerts.
-
-If you want the narrowest network footprint, leave AI, Gmail, Slack, and
-credentialed sources disabled and use only sources you are comfortable
-contacting.
+The local application stores your profile, listings, and application record in
+`data/app.db` on your computer and listens only on `127.0.0.1`. When you run a
+search, your search terms and locations go to the sources you enabled. When you
+request AI filtering or scoring, the relevant listing and profile information
+goes directly to the provider you selected. Optional Gmail and Slack features
+connect only when you configure and enable them. Preparing an application
+packet does not submit it to an employer.
 
 ---
 
-## What works today
+## ⚙️ Extreme technicals below
 
-- Onboarding, profiles, role preferences, and search presets.
-- Multi-source searches, deduplication, source health, cancellation, and scan
-  history.
-- Rule-based and optional AI-assisted filtering plus fit scoring.
-- Application queue, guided browser-assistant packet, final-submit guardrail,
-  pipeline tracking, timeline, analytics, and CSV export.
-- Optional read-only Gmail response monitoring, Google Voice email recognition,
-  and Slack alerts.
-- Dark/light appearance controls, responsive navigation, keyboard shortcuts,
-  and documented semantic hooks for browser agents.
+### How the repository is organized
 
-## Known limits
-
-- The hosted service is not publicly open yet; access begins invite-only.
-- Job-source coverage changes over time, especially scraper-backed sources.
-- AI judgments are suggestions. Read the listing and verify the employer before
-  acting.
-- Response monitoring is not a general email client and may require review when
-  classification is uncertain.
-
----
-
-## How this repository is organized
-
-- **`client/`** — the React interface used by the person and browser assistant.
-- **`server/`** — the local Express/tRPC service, source adapters, filtering,
+- **`client/`** — the React interface, including the deterministic showroom
+  adapter.
+- **`server/`** — the Express/tRPC service, source adapters, filtering, scoring,
   application workflow, and optional integrations.
-- **`shared/`** — types, platform definitions, and shared catalog rules.
-- **`drizzle/`** — the local SQLite schema and migrations.
-- **`docs/CONCIERGE_PROMPT.md`** — a tested prompt for a browser assistant.
-- **`docs/internal/`** — architecture, decisions, active work, and the semantic
-  hook inventory for contributors.
-- **`VISION.md`** — the Agentic Accessibility thesis behind the product.
+- **`shared/`** — types and platform definitions shared by the client and
+  server.
+- **`drizzle/`** — the SQLite schema and migrations.
+- **`docs/CONCIERGE_PROMPT.md`** — the tested prompt for an in-browser AI agent.
+- **`docs/internal/`** — the roadmap, task ledger, architectural decisions, and
+  semantic-hook reference.
 
----
+### Contributing and maintenance
 
-## Contributing and maintenance
+Open an issue before sending a code pull request so the proposed change can be
+checked against the current architecture. Run `pnpm check` and `pnpm test`
+before submitting. Bug reports are welcome; security reports should follow
+[`SECURITY.md`](SECURITY.md). The full contribution process is in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-Bug reports and focused code contributions are welcome.
-Please open an issue before a code pull request so the approach can be checked
-against the project's tenant-isolation and human-approval boundaries.
+### Credits
 
-Job Matrix is maintained on a best-effort basis. An issue is an invitation to
-investigate, not a promise of a roadmap or response date. See
-[`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md).
+Job Matrix is directed and maintained by James with assistance from generative
+AI development tools. It uses
+[`python-jobspy`](https://github.com/speedyapply/JobSpy) for its optional
+JobSpy-backed sources. JobSpy is a separate MIT-licensed project and is not
+owned by Job Matrix or its contributors. Other dependency notices are in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
----
+### License
 
-## Credits
-
-Job Matrix is directed and maintained by James with extensive assistance from
-generative-AI development tools. That collaboration is part of the project, not
-a hidden disclaimer: the application is itself an experiment in building one
-legible interface for a person and the trusted agents working at their direction.
-
-Job Matrix began as a way to make
-[JobSpy](https://github.com/speedyapply/JobSpy)'s job-board aggregation useful
-from one local, human-readable workspace. JobSpy remains the foundation of the
-optional scraper tier; Job Matrix adds the dashboard, local tracking, source
-adapters, application workflow, and human-approval boundaries around it.
-
-JobSpy and the project's other open-source dependencies remain the work of
-their respective contributors. Their licenses and notices are preserved in
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and in the dependencies
-themselves.
-
----
-
-## A note on intent
-
-Job hunting asks people to repeat the same facts, scan the same noise, and spend
-attention proving themselves to systems that forget them immediately. Job Matrix
-does not make the important decisions for you. It gives the repetitive parts a
-place to live so your attention can stay on whether the work is real, whether it
-fits, and whether you want it.
-
----
-
-## License
-
-Job Matrix is source-available under the
-[PolyForm Noncommercial License 1.0.0](LICENSE). You may inspect, use, modify,
-and share it for noncommercial purposes. Commercial use is not permitted.
-
-JobSpy remains a separate MIT-licensed dependency. Third-party job data,
-employer names and marks, provider services, and other dependencies remain
-governed by their respective owners and terms.
+Job Matrix is available under the
+[PolyForm Noncommercial License 1.0.0](LICENSE). Noncommercial use,
+modification, and redistribution are permitted under that license; commercial
+use is not.
