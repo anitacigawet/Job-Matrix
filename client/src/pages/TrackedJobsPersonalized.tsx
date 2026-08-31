@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
-import { debugLog } from "@/components/DebugConsole";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -68,7 +67,6 @@ import { getFriendlyApiErrorMessage } from "@/lib/api-errors";
 import { WorkflowRail } from "@/components/WorkflowRail";
 import { StatusStrip } from "@/components/StatusStrip";
 import { ApplyAction } from "@/components/PlatformApplyButton";
-import { useDebugMode } from "@/contexts/DebugModeContext";
 import { ApplicationAssistantDialog } from "@/components/ApplicationAssistantDialog";
 
 // Helper function to format seconds into human-readable time
@@ -128,7 +126,6 @@ function getJobFitScore(job: any): number {
 
 export function TrackedJobsPersonalized() {
   const utils = trpc.useUtils();
-  const { isDebugMode } = useDebugMode();
   const [progressDetails, setProgressDetails] = useState<{
     phase?: string;
     current?: number;
@@ -153,10 +150,10 @@ export function TrackedJobsPersonalized() {
     aiAnalysisEnabled: boolean;
   }>({ globalSearchCompleted: false, aiAnalysisEnabled: false });
   const [isNukeDialogOpen, setIsNukeDialogOpen] = useState(false);
-  // Default collapsed (D11.16c) — most users don't need the filtered-out list
+  // Default collapsed because most users don't need the filtered-out list
   // hanging open on every dashboard load. Power users can expand. State is
   // ephemeral; not persisted to localStorage on purpose.
-  const [showDebugConsole, setShowDebugConsole] = useState(false);
+  const [showFilteredJobs, setShowFilteredJobs] = useState(false);
 
   // Auto-scroll terminal boxes container when content updates
   useEffect(() => {
@@ -247,7 +244,6 @@ export function TrackedJobsPersonalized() {
       const partialFailure = !allFailed && (result.failedSearchCount ?? 0) > 0;
 
       if (allFailed) {
-        debugLog.error(`✗ Global Search failed: ${result.message}`);
         toast.error("Global Search Failed", { description: result.message });
         setTerminalBoxes([
           {
@@ -262,18 +258,14 @@ export function TrackedJobsPersonalized() {
       }
 
       if (partialFailure) {
-        debugLog.warn(`⚠ Global Search partial: ${result.message}`);
         toast.warning("Global Search — partial success", {
           description: result.message,
         });
       } else {
-        debugLog.info(`✅ Global Search completed: ${result.message}`);
         toast.success("Global Search Complete!", {
           description: result.message,
         });
       }
-      debugLog.info("🔄 Refreshing job listings and last scan timestamp");
-
       setTerminalBoxes([
         {
           id: "global-search",
@@ -292,14 +284,12 @@ export function TrackedJobsPersonalized() {
       // Clear terminal boxes after 2 seconds
       setTimeout(() => setTerminalBoxes([]), 2000);
 
-      utils.indeed.getTrackedJobs.invalidate();
       utils.personalized.getLastGlobalSearch.invalidate();
       utils.personalized.getPendingJobCounts.invalidate();
       utils.personalized.getSystemStats.invalidate();
       utils.personalized.getEligibleJobs.invalidate();
     },
     onError: error => {
-      debugLog.error(`❌ Global Search failed: ${error.message}`);
       toast.error("Global Search Failed", {
         description: getFriendlyApiErrorMessage(error),
       });
@@ -318,8 +308,6 @@ export function TrackedJobsPersonalized() {
   // Phase 2: AI Job Filtering mutation
   const aiAnalysis = trpc.personalized.runAIAnalysis.useMutation({
     onSuccess: result => {
-      debugLog.info(`✅ AI Job Filtering completed: ${result.message}`);
-      debugLog.info("🔄 Refreshing job listings with AI Job Filtering results");
       toast.success("AI Job Filtering Complete!", {
         description: result.message,
       });
@@ -350,7 +338,6 @@ export function TrackedJobsPersonalized() {
       setTimeout(() => {
         setTerminalBoxes([]);
         // Auto-chain: run fit scoring after AI Job Filtering completes
-        debugLog.info("🎯 Auto-chaining Fit Scoring after AI Job Filtering...");
         toast.info("Starting Fit Scoring...", {
           description:
             "Automatically scoring eligible jobs against your profile",
@@ -366,15 +353,12 @@ export function TrackedJobsPersonalized() {
         fitScoring.mutate();
       }, 2000);
 
-      utils.indeed.getTrackedJobs.invalidate();
       utils.personalized.getLastAIAnalysis.invalidate();
       utils.personalized.getPendingJobCounts.invalidate();
       utils.personalized.getSystemStats.invalidate();
       utils.personalized.getEligibleJobs.invalidate();
     },
     onError: error => {
-      debugLog.error(`❌ AI Job Filtering failed: ${error.message}`);
-
       // Extract stage information from error message if present
       const stageMatch = error.message.match(/Stage (\d+) \(([^)]+)\)/);
       const title = stageMatch
@@ -392,10 +376,6 @@ export function TrackedJobsPersonalized() {
   });
   const cleanDatabase = trpc.personalized.cleanDatabase.useMutation({
     onSuccess: result => {
-      debugLog.info(`✅ Database cleaned: ${result.message}`);
-      debugLog.info(
-        "🔄 Refreshing job listings and badge counts after cleanup"
-      );
       toast.success("Database Cleaned!", {
         description: result.message,
       });
@@ -407,7 +387,6 @@ export function TrackedJobsPersonalized() {
       utils.personalized.getLastAIAnalysis.invalidate();
     },
     onError: error => {
-      debugLog.error(`❌ Database Cleanup failed: ${error.message}`);
       toast.error("Clean Failed", {
         description: getFriendlyApiErrorMessage(error),
       });
@@ -417,14 +396,12 @@ export function TrackedJobsPersonalized() {
   // Pause operation mutation
   const pauseOperation = trpc.personalized.pauseOperation.useMutation({
     onSuccess: result => {
-      debugLog.info(`⏸️ Operation paused: ${result.message}`);
       toast.info("Operation Paused", {
         description: "You can resume anytime",
       });
       utils.personalized.getCurrentScanProgress.invalidate();
     },
     onError: error => {
-      debugLog.error(`❌ Pause failed: ${error.message}`);
       toast.error("Pause Failed", {
         description: getFriendlyApiErrorMessage(error),
       });
@@ -434,14 +411,12 @@ export function TrackedJobsPersonalized() {
   // Resume operation mutation
   const resumeOperation = trpc.personalized.resumeOperation.useMutation({
     onSuccess: result => {
-      debugLog.info(`▶️ Operation resumed: ${result.message}`);
       toast.success("Operation Resumed", {
         description: "Continuing from where we left off",
       });
       utils.personalized.getCurrentScanProgress.invalidate();
     },
     onError: error => {
-      debugLog.error(`❌ Resume failed: ${error.message}`);
       toast.error("Resume Failed", {
         description: getFriendlyApiErrorMessage(error),
       });
@@ -451,15 +426,12 @@ export function TrackedJobsPersonalized() {
   // Cancel operation mutation
   const cancelOperation = trpc.personalized.cancelOperation.useMutation({
     onSuccess: result => {
-      debugLog.info(`🛑 Operation cancelled: ${result.message}`);
       toast.success("Operation Cancelled", {
         description: "All progress has been stopped",
       });
       utils.personalized.getCurrentScanProgress.invalidate();
-      utils.indeed.getTrackedJobs.invalidate();
     },
     onError: error => {
-      debugLog.error(`❌ Cancel failed: ${error.message}`);
       toast.error("Cancel Failed", {
         description: getFriendlyApiErrorMessage(error),
       });
@@ -470,11 +442,9 @@ export function TrackedJobsPersonalized() {
   const markAsApplied = trpc.personalized.markJobAsApplied.useMutation({
     onSuccess: result => {
       if (result.success) {
-        debugLog.info(`✅ Job marked as applied`);
         toast.success("Job Marked as Applied!", {
           description: "Added to your Applied Jobs list",
         });
-        utils.indeed.getTrackedJobs.invalidate();
         utils.personalized.getEligibleJobs.invalidate();
         utils.personalized.getAppliedJobs.invalidate();
       } else {
@@ -484,18 +454,17 @@ export function TrackedJobsPersonalized() {
       }
     },
     onError: error => {
-      debugLog.error(`❌ Mark as applied failed: ${error.message}`);
       toast.error("Failed to Mark as Applied", {
         description: getFriendlyApiErrorMessage(error),
       });
     },
   });
 
-  // Poll server logs during any active operation
+  // Track whether any operation is currently active.
   const isAnyOperationPending =
     globalSearch.isPending || aiAnalysis.isPending || cleanDatabase.isPending;
 
-  // Track previous progress to avoid log spam
+  // Track previous progress to avoid redundant updates.
   const prevProgressRef = useRef<{
     phase: string;
     current: number;
@@ -513,7 +482,7 @@ export function TrackedJobsPersonalized() {
   // Update progress display from database (survives refresh!)
   useEffect(() => {
     if (dbProgress && dbProgress.status === "running") {
-      // Only log if progress values actually changed
+      // Only process progress when its values change.
       const hasChanged =
         !prevProgressRef.current ||
         prevProgressRef.current.phase !== dbProgress.currentPhase ||
@@ -521,9 +490,6 @@ export function TrackedJobsPersonalized() {
         prevProgressRef.current.total !== dbProgress.totalProgress;
 
       if (hasChanged) {
-        debugLog.info(
-          `📈 Progress update: ${dbProgress.currentPhase} - ${dbProgress.currentProgress}/${dbProgress.totalProgress}`
-        );
         prevProgressRef.current = {
           phase: dbProgress.currentPhase,
           current: dbProgress.currentProgress,
@@ -658,253 +624,7 @@ export function TrackedJobsPersonalized() {
     }
   }, [dbProgress, aiAnalysis.isPending]);
 
-  const { data: serverLogs } = trpc.system.getRecentLogs.useQuery(
-    { limit: 50 },
-    {
-      enabled: isAnyOperationPending,
-      refetchInterval: isAnyOperationPending ? 1000 : false, // Poll every second during any operation
-    }
-  );
-
-  // Extract progress from server logs
-  useEffect(() => {
-    if (!isAnyOperationPending || !serverLogs) {
-      setProgressDetails(null);
-      return;
-    }
-
-    // Find latest progress message
-    for (let i = serverLogs.length - 1; i >= 0; i--) {
-      const log = serverLogs[i];
-      if (!log.message) continue;
-
-      // Global Search: Searching
-      if (
-        log.message.includes("[Global Search]") &&
-        log.message.includes("Searching:")
-      ) {
-        const match = log.message.match(/Searching: "([^"]+)" in (.+)/);
-        if (match) {
-          setProgressDetails({
-            phase: "Global Search",
-            current: 0,
-            total: 0,
-            message: `Searching for ${match[1]} jobs in ${match[2]}...`,
-          });
-          return;
-        }
-      }
-
-      // Legacy: Personalized Scan Searching
-      if (
-        log.message.includes("[Personalized Scan]") &&
-        log.message.includes("Searching:")
-      ) {
-        const match = log.message.match(/Searching: "([^"]+)" in (.+)/);
-        if (match) {
-          setProgressDetails({
-            phase: "Phase 1: Global Search",
-            current: 0,
-            total: 0,
-            message: `Searching for ${match[1]} jobs in ${match[2]}...`,
-          });
-          return;
-        }
-      }
-
-      // Global Search: Progress with counter
-      if (
-        log.message.includes("[Global Search]") &&
-        log.message.includes("Progress:")
-      ) {
-        const match = log.message.match(
-          /Progress: (\d+)\/(\d+) - Searching "([^"]+)" in (.+)/
-        );
-        if (match) {
-          setProgressDetails({
-            phase: "Global Search",
-            current: parseInt(match[1]),
-            total: parseInt(match[2]),
-            message: `Searching "${match[3]}" in ${match[4]}...`,
-          });
-          return;
-        }
-      }
-
-      // Global Search: Found jobs
-      if (
-        log.message.includes("[Global Search]") &&
-        log.message.includes("Found") &&
-        log.message.includes("Total so far")
-      ) {
-        const match = log.message.match(
-          /Found (\d+) jobs \(Total so far: (\d+)\)/
-        );
-        if (match) {
-          setProgressDetails(prev => ({
-            ...prev,
-            message: `Found ${match[1]} jobs (Total: ${match[2]})`,
-          }));
-          return;
-        }
-      }
-
-      // Global Search: Saving progress
-      if (
-        log.message.includes("[Global Search]") &&
-        log.message.includes("Saving progress:")
-      ) {
-        const match = log.message.match(
-          /Saving progress: (\d+)\/(\d+) jobs processed/
-        );
-        if (match) {
-          setProgressDetails({
-            phase: "Global Search - Saving",
-            current: parseInt(match[1]),
-            total: parseInt(match[2]),
-            message: `Saving to database: ${match[1]}/${match[2]} jobs processed`,
-          });
-          return;
-        }
-      }
-
-      // Global Search: Complete
-      if (
-        log.message.includes("[Global Search]") &&
-        log.message.includes("✅ COMPLETE")
-      ) {
-        const match = log.message.match(
-          /Found (\d+) jobs, saved (\d+) new ones/
-        );
-        if (match) {
-          setProgressDetails({
-            phase: "Global Search",
-            current: 0,
-            total: 0,
-            message: `✅ Complete! Found ${match[1]} jobs, saved ${match[2]} new ones`,
-          });
-          return;
-        }
-      }
-
-      // AI Job Filtering: Progress
-      if (
-        log.message.includes("[AI Job Filtering]") &&
-        log.message.includes("Progress:")
-      ) {
-        const match = log.message.match(/(\d+)\/(\d+)/);
-        if (match) {
-          setProgressDetails({
-            phase: "AI Job Filtering",
-            current: parseInt(match[1]),
-            total: parseInt(match[2]),
-            message: `Analyzing job ${match[1]} of ${match[2]} with AI...`,
-          });
-          return;
-        }
-      }
-
-      // AI Job Filtering: Starting
-      if (
-        log.message.includes("[AI Job Filtering]") &&
-        log.message.includes("Found") &&
-        log.message.includes("jobs to analyze")
-      ) {
-        const match = log.message.match(/(\d+) jobs to analyze/);
-        if (match) {
-          setProgressDetails({
-            phase: "AI Job Filtering",
-            current: 0,
-            total: parseInt(match[1]),
-            message: `Starting AI Job Filtering of ${match[1]} jobs...`,
-          });
-          return;
-        }
-      }
-
-      // AI Job Filtering: Complete
-      if (
-        log.message.includes("[AI Job Filtering]") &&
-        log.message.includes("✅ COMPLETE")
-      ) {
-        const match = log.message.match(
-          /Analyzed (\d+) jobs: (\d+) eligible, (\d+) ineligible/
-        );
-        if (match) {
-          setProgressDetails({
-            phase: "AI Job Filtering",
-            current: 0,
-            total: 0,
-            message: `✅ Complete! Analyzed ${match[1]} jobs: ${match[2]} eligible, ${match[3]} ineligible`,
-          });
-          return;
-        }
-      }
-
-      // Database Cleanup: Progress
-      if (
-        log.message.includes("[Database Cleanup]") &&
-        log.message.includes("Found") &&
-        log.message.includes("ineligible jobs")
-      ) {
-        const match = log.message.match(/(\d+) ineligible jobs/);
-        if (match) {
-          setProgressDetails({
-            phase: "Database Cleanup",
-            current: 0,
-            total: 0,
-            message: `Removing ${match[1]} ineligible jobs...`,
-          });
-          return;
-        }
-      }
-
-      // Database Cleanup: Complete
-      if (
-        log.message.includes("[Database Cleanup]") &&
-        log.message.includes("✅ COMPLETE")
-      ) {
-        const match = log.message.match(/Removed (\d+) ineligible jobs/);
-        if (match) {
-          setProgressDetails({
-            phase: "Database Cleanup",
-            current: 0,
-            total: 0,
-            message: `✅ Complete! Removed ${match[1]} ineligible jobs`,
-          });
-          return;
-        }
-      }
-    }
-  }, [serverLogs, isAnyOperationPending]);
-
-  // Update terminal animation logs from server logs
-  useEffect(() => {
-    if (serverLogs && serverLogs.length > 0) {
-      const newLogs = serverLogs
-        .filter(log => log.source === "server")
-        .map(log => log.message);
-
-      // Terminal logs no longer displayed in large terminal
-    }
-  }, [serverLogs]);
-
-  // Close terminal when operations complete
-  useEffect(() => {
-    if (!isAnyOperationPending) {
-      // Wait 2 seconds after completion before closing
-      const timer = setTimeout(() => {
-        // Terminal no longer needs closing
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [isAnyOperationPending]);
-
   const handleBroadSearch = () => {
-    debugLog.info(
-      "🔍 User clicked Global Search button - starting job search across all titles and locations"
-    );
-
     // Add terminal box for Global Search
     setTerminalBoxes([
       {
@@ -915,14 +635,10 @@ export function TrackedJobsPersonalized() {
       },
     ]);
 
-    globalSearch.mutate({ requestId: crypto.randomUUID() });
+    globalSearch.mutate();
   };
 
   const handleAIAnalysis = () => {
-    debugLog.info(
-      "✨ User clicked AI Job Filtering button - starting AI filtering of unanalyzed jobs"
-    );
-
     // Start with Stage 1 terminal box
     setTerminalBoxes([
       {
@@ -949,12 +665,7 @@ export function TrackedJobsPersonalized() {
     );
 
     if (confirmed) {
-      debugLog.info(
-        `🧹 User confirmed Database Cleanup - removing all ${totalJobCount} jobs`
-      );
       cleanDatabase.mutate();
-    } else {
-      debugLog.info("❌ User cancelled Database Cleanup operation");
     }
   };
 
@@ -1017,7 +728,6 @@ export function TrackedJobsPersonalized() {
   // Fit Scoring mutation
   const fitScoring = trpc.personalized.runFitScoring.useMutation({
     onSuccess: result => {
-      debugLog.info(`✅ Fit Scoring completed: ${result.message}`);
       toast.success("Fit Scoring Complete!", {
         description: result.message,
       });
@@ -1034,7 +744,6 @@ export function TrackedJobsPersonalized() {
       utils.personalized.getDuplicateGroups.invalidate();
     },
     onError: error => {
-      debugLog.error(`❌ Fit Scoring failed: ${error.message}`);
       toast.error("Fit Scoring Failed", {
         description: getFriendlyApiErrorMessage(error),
       });
@@ -1475,57 +1184,23 @@ export function TrackedJobsPersonalized() {
           />
 
           {/* Terminal boxes stream into the rail while operations are running */}
-          {(terminalBoxes.length > 0 || isDebugMode) && (
+          {terminalBoxes.length > 0 && (
             <div
               ref={terminalBoxesContainerRef}
               className="stack-tight"
               style={{ maxHeight: 420, overflowY: "auto" }}
             >
-              {isDebugMode && terminalBoxes.length === 0 ? (
-                <div style={{ position: "relative" }}>
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: -8,
-                      left: -8,
-                      zIndex: 1,
-                      padding: "1px 6px",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 10,
-                      background: "var(--warn-bg)",
-                      border:
-                        "1px solid color-mix(in oklch, var(--warn) 35%, var(--line))",
-                      color: "var(--warn)",
-                      borderRadius: 4,
-                    }}
-                  >
-                    DEBUG PREVIEW
-                  </div>
-                  <TerminalBox
-                    key="debug-preview-1"
-                    id="debug-broad-search"
-                    title="[Debug] Global Search Box Preview"
-                    status="running"
-                    message="This box appears during Global Search operations"
-                    progress={{ current: 45, total: 100 }}
-                    isDebugPreview={true}
-                  />
-                </div>
-              ) : (
-                terminalBoxes.map((box, index) => (
-                  <TerminalBox
-                    key={`${box.title}-${index}`}
-                    id={box.id}
-                    title={box.title}
-                    status={box.status}
-                    message={box.message}
-                    progress={box.progress}
-                    spawnFrom={box.spawnFrom}
-                    onComplete={box.onComplete}
-                    isDebugPreview={false}
-                  />
-                ))
-              )}
+              {terminalBoxes.map((box, index) => (
+                <TerminalBox
+                  key={box.id ?? `${box.title}-${index}`}
+                  title={box.title}
+                  status={box.status}
+                  message={box.message}
+                  progress={box.progress}
+                  spawnFrom={box.spawnFrom}
+                  onComplete={box.onComplete}
+                />
+              ))}
             </div>
           )}
         </aside>
@@ -2405,7 +2080,7 @@ export function TrackedJobsPersonalized() {
                 })}
               </div>
 
-              {/* Section 2: AI Debug Console. Collapsed by default (D11.16c) —
+              {/* Section 2: filtered-job review. Collapsed by default —
               filtered-out jobs are a distinct concern from the eligible list
               and don't need to push it below the fold on every page load.
               The toggle persists nothing; reopens to collapsed on refresh. */}
@@ -2414,19 +2089,19 @@ export function TrackedJobsPersonalized() {
                 <div className="mt-12">
                   <button
                     type="button"
-                    onClick={() => setShowDebugConsole(s => !s)}
-                    data-agent-action="toggle-ai-debug-console"
-                    aria-expanded={showDebugConsole}
+                    onClick={() => setShowFilteredJobs(shown => !shown)}
+                    data-agent-action="toggle-filtered-jobs"
+                    aria-expanded={showFilteredJobs}
                     className="w-full flex items-center gap-3 mb-4 text-left hover:bg-muted/20 rounded-lg p-2 -m-2 transition-colors"
                   >
-                    {showDebugConsole ? (
+                    {showFilteredJobs ? (
                       <ChevronUp className="h-5 w-5 text-muted-foreground" />
                     ) : (
                       <ChevronDown className="h-5 w-5 text-muted-foreground" />
                     )}
                     <AlertCircle className="h-6 w-6 text-yellow-400" />
                     <h2 className="text-2xl font-bold text-foreground">
-                      AI Debug Console
+                      Jobs Filtered by AI
                     </h2>
                     <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/40">
                       {
@@ -2437,21 +2112,21 @@ export function TrackedJobsPersonalized() {
                       filtered out
                     </Badge>
                     <span className="ml-auto text-xs text-muted-foreground">
-                      {showDebugConsole ? "Hide" : "Show"}
+                      {showFilteredJobs ? "Hide" : "Show"}
                     </span>
                   </button>
-                  {!showDebugConsole && (
+                  {!showFilteredJobs && (
                     <p
                       className="text-xs text-muted-foreground italic px-2"
-                      data-agent-status="ai-debug-console-collapsed"
+                      data-agent-status="filtered-jobs-collapsed"
                     >
                       Click above to inspect why each job was filtered out —
-                      useful for verifying the AI's accuracy or debugging your
-                      profile / filter rules.
+                      useful for checking the AI's accuracy or adjusting your
+                      profile and filter rules.
                     </p>
                   )}
-                  {showDebugConsole && (
-                    <div data-agent-status="ai-debug-console">
+                  {showFilteredJobs && (
+                    <div data-agent-status="filtered-jobs">
                       <p className="text-sm text-muted-foreground mb-6">
                         Jobs that were filtered out by AI - review to verify
                         accuracy
@@ -2641,9 +2316,6 @@ export function TrackedJobsPersonalized() {
               className="w-full font-bold shadow-lg shadow-red-500/20"
               onClick={() => {
                 setIsNukeDialogOpen(false);
-                debugLog.info(
-                  `🧹 User triggered Nuke Database - removing all ${totalJobCount} jobs`
-                );
                 cleanDatabase.mutate();
               }}
               data-agent-action="nuke-database"

@@ -1,0 +1,115 @@
+name: Build local release artifacts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm test
+      - run: pnpm build
+
+      - name: Download and verify official Node.js runtimes
+        shell: pwsh
+        run: ./scripts/fetch-node-runtimes.ps1 -Version 24.20.0
+
+      - name: Assemble deterministic ZIP files
+        shell: pwsh
+        run: |
+          pnpm release:assemble -- `
+            --node-x64 "dist/release-tools/node-v24.20.0-win-x64" `
+            --node-arm64 "dist/release-tools/node-v24.20.0-win-arm64"
+
+      - name: Verify a byte-for-byte reproducible rebuild
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $before = Get-Content 'dist/releases/SHA256SUMS.txt' -Raw
+          pnpm release:assemble -- `
+            --node-x64 "dist/release-tools/node-v24.20.0-win-x64" `
+            --node-arm64 "dist/release-tools/node-v24.20.0-win-arm64"
+          $after = Get-Content 'dist/releases/SHA256SUMS.txt' -Raw
+          if ($before -cne $after) {
+            throw 'Release ZIP checksums changed across identical consecutive builds.'
+          }
+
+      - name: Extract and smoke-test runnable artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $extractRoot = Join-Path $PWD 'dist/release-smoke'
+          New-Item -ItemType Directory -Force -Path $extractRoot | Out-Null
+
+          foreach ($name in @(
+            'Job-Matrix-v1.0.0-runtime',
+            'Job-Matrix-v1.0.0-windows-x64-portable'
+          )) {
+            Expand-Archive -LiteralPath "dist/releases/$name.zip" -DestinationPath $extractRoot -Force
+            node scripts/smoke-release.mjs "$extractRoot/$name"
+          }
+
+          $armName = 'Job-Matrix-v1.0.0-windows-arm64-portable'
+          Expand-Archive -LiteralPath "dist/releases/$armName.zip" -DestinationPath $extractRoot -Force
+          node scripts/smoke-release.mjs "$extractRoot/$armName" --structural-only
+
+      - name: Switch to the minimum supported Node release
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+
+      - name: Smoke-test the runtime artifact on Node 22
+        shell: pwsh
+        run: node scripts/smoke-release.mjs "dist/release-smoke/Job-Matrix-v1.0.0-runtime"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: job-matrix-v1.0.0-local-release-${{ github.run_id }}
+          path: dist/releases/*
+          if-no-files-found: error
+          retention-days: 14
+
+  verify-runtime-unix:
+    name: Runtime ZIP on ${{ matrix.os }} / Node ${{ matrix.node-version }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+        node-version: [22.22.0, 24.20.0]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: job-matrix-v1.0.0-local-release-${{ github.run_id }}
+          path: dist/download
+
+      - name: Extract and smoke-test the platform-neutral runtime
+        shell: bash
+        run: |
+          mkdir -p dist/release-smoke-unix
+          unzip -q dist/download/Job-Matrix-v1.0.0-runtime.zip -d dist/release-smoke-unix
+          test -x dist/release-smoke-unix/Job-Matrix-v1.0.0-runtime/start.sh
+          node scripts/smoke-release.mjs dist/release-smoke-unix/Job-Matrix-v1.0.0-runtime

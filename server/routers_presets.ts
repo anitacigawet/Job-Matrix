@@ -84,7 +84,7 @@ export const presetsRouter = router({
     .mutation(async ({ input, ctx }) => {
       const existing = await getSearchPresets(ctx.user.id);
       if (existing.length >= MAX_PRESETS_PER_USER) {
-        throw new Error(`Each account can keep up to ${MAX_PRESETS_PER_USER} search presets.`);
+        throw new Error(`You can keep up to ${MAX_PRESETS_PER_USER} search presets.`);
       }
       const id = await createSearchPreset({
         userId: ctx.user.id,

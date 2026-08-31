@@ -1,8 +1,7 @@
 /**
  * Tier-1 data source connection tester. Mirrors `provider-tester.ts` for the
  * LLM keys: round-trip a single minimal request, humanise the error.
- *
- * D13.3. Used by the "Test Connection" button on Settings → Data Sources.
+ * Used by the "Test Connection" button on Settings → Data Sources.
  */
 
 export type DataSourceId = "adzuna" | "usajobs" | "jooble" | "themuse";

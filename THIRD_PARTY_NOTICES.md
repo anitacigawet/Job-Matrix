@@ -4,6 +4,21 @@ Job Matrix uses open-source libraries whose licenses remain their own. The
 project's central upstream dependency is acknowledged here so that its role and
 authorship remain visible.
 
+## Bundled JavaScript dependencies
+
+Release archives include a generated `licenses/` directory with the declared
+license, attribution metadata, and complete license text for every direct or
+transitive JavaScript package embedded in the compiled client or server. The
+small external `sql.js` runtime also retains its upstream `LICENSE` and
+`AUTHORS` files beside its executable JavaScript and WebAssembly files.
+
+## Node.js
+
+The Windows portable releases include an unmodified official Node.js runtime.
+Its upstream license is included beside the executable in the release's
+`runtime/` directory. Node.js is a separate open-source project and is not
+owned by Job Matrix or its contributors.
+
 ## JobSpy
 
 Job Matrix optionally invokes
@@ -33,6 +48,5 @@ owned by Job Matrix or its contributors.
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
-The copy above reflects JobSpy's upstream `LICENSE` at the time of this public
-beta. Other installed packages carry their notices in their distributed
-package metadata.
+The copy above reflects JobSpy's upstream `LICENSE` when Job Matrix 1.0.0 was
+prepared.

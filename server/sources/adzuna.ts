@@ -1,5 +1,5 @@
 /**
- * Adzuna — Tier 1 real API source. See DECISIONS.md D-019.
+ * Adzuna — Tier 1 real API source.
  *
  * Adzuna docs: https://developer.adzuna.com/docs/search
  *

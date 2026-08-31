@@ -1,11 +1,10 @@
 import { z } from "zod";
 import { router, userProcedure } from "./_core/trpc";
 import { getDb, saveUserProfile, getUserProfile } from "./db";
-import { users, userJobTitles, inviteCodes } from "../drizzle/schema";
+import { users, userJobTitles } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { invokeLLM } from "./_core/llm";
 import { TRPCError } from "@trpc/server";
-import { hostedWorkCoordinator } from "./services/hosted-work-coordinator";
 
 type ParsedResumeSuggestions = {
   jobTypeTarget: string | null;
@@ -41,13 +40,6 @@ async function retryLLM<T>(
   throw lastError || new Error("LLM call failed after retries");
 }
 
-function withHostedOnboardingAi<T>(
-  ctx: { hosted?: boolean; user: { id: number } },
-  operation: () => Promise<T>,
-): Promise<T> {
-  return ctx.hosted ? hostedWorkCoordinator.runAi(ctx.user.id, operation) : operation();
-}
-
 export const onboardingRouter = router({
   uploadResumeAndParse: userProcedure
     .input(z.object({
@@ -56,7 +48,7 @@ export const onboardingRouter = router({
       fileSize: z.number().positive().max(10 * 1024 * 1024).optional(),
       resumeText: z.string().max(120_000).optional(),
     }))
-    .mutation(({ input, ctx }) => withHostedOnboardingAi(ctx, async () => {
+    .mutation(async ({ input, ctx }) => {
       console.log("[Onboarding] Resume auto-fill requested", {
         userId: ctx.user.id,
         fileName: input.fileName,
@@ -161,14 +153,14 @@ export const onboardingRouter = router({
             "Auto-fill did not complete (AI busy or error). Continue manually—onboarding is not blocked.",
         };
       }
-    })),
+    }),
 
   // Generate 15 job title variations from user input
   generateJobTitles: userProcedure
     .input(z.object({
       jobType: z.string().trim().min(1).max(160),
     }))
-    .mutation(({ input, ctx }) => withHostedOnboardingAi(ctx, async () => {
+    .mutation(async ({ input }) => {
       const { jobType } = input;
       
       console.log(`[Onboarding] Generating job titles for: ${jobType}`);
@@ -223,7 +215,7 @@ export const onboardingRouter = router({
           message: `Failed to generate job titles: ${error instanceof Error ? error.message : "Unknown error"}`,
         });
       }
-    })),
+    }),
 
   // Save user profile from onboarding questions
   saveProfile: userProcedure
@@ -265,7 +257,7 @@ export const onboardingRouter = router({
         // If skills were provided, parse them with AI
         if (input.skillsRaw && input.skillsRaw.trim().length > 0) {
           try {
-            const skillsResponse = await withHostedOnboardingAi(ctx, () => retryLLM(async () => {
+            const skillsResponse = await retryLLM(async () => {
               return await invokeLLM({
                 messages: [
                   {
@@ -279,7 +271,7 @@ export const onboardingRouter = router({
                 ],
                 response_format: { type: "json_object" }
               });
-            }));
+            });
 
             if (skillsResponse?.choices?.[0]?.message?.content) {
               const parsedSkills = JSON.parse(skillsResponse.choices[0].message.content as string);
@@ -421,46 +413,4 @@ export const onboardingRouter = router({
       return { success: true };
     }),
 
-  // Validate invite code
-  validateInviteCode: userProcedure
-    .input(z.object({
-      code: z.string().trim().min(1).max(100),
-    }))
-    .mutation(async ({ input }) => {
-      const { code } = input;
-      const db = await getDb();
-      if (!db) throw new Error("Database not available");
-
-      const inviteCode = await db.select()
-        .from(inviteCodes)
-        .where(eq(inviteCodes.code, code))
-        .limit(1);
-
-      if (inviteCode.length === 0) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Invalid invite code",
-        });
-      }
-
-      const invite = inviteCode[0];
-
-      // Check if expired
-      if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Invite code has expired",
-        });
-      }
-
-      // Check if max uses reached
-      if (invite.currentUses >= invite.maxUses) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Invite code has reached maximum uses",
-        });
-      }
-
-      return { valid: true };
-    }),
 });

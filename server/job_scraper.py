@@ -39,7 +39,7 @@ def search_jobs(search_term, location, platforms=None, distance=50, results_want
     
     Args:
         search_term: Job title or keywords
-        location: Location string (e.g., "Kingman, AZ")
+        location: Location string (e.g., "Phoenix, AZ")
         platforms: List of platform names (default: ["indeed"])
         distance: Search radius in miles (default: 50)
         results_wanted: Number of results to return (default: 20)

@@ -1,6 +1,5 @@
 import { invokeLLM } from "./_core/llm";
 import { TrackedJob } from "../drizzle/schema";
-import fs from "fs";
 
 /**
  * User profile data used to dynamically customize AI filtering prompts
@@ -66,18 +65,6 @@ function getDegreesToReject(level: string): string {
     case "phd": return "none - user has the highest degree level";
     default: return "any college degree";
   }
-}
-
-const DEBUG_LOG_FILE = "/tmp/ai-analysis-debug.log";
-
-function logToFile(message: string) {
-  const timestamp = new Date().toISOString();
-  fs.appendFileSync(DEBUG_LOG_FILE, "[" + timestamp + "] " + message + "\n", "utf8");
-}
-
-export function initializeDebugLog() {
-  const timestamp = new Date().toISOString();
-  fs.writeFileSync(DEBUG_LOG_FILE, "=== AI Job Filtering Debug Log ===\nStarted: " + timestamp + "\n\n", "utf8");
 }
 
 /**
@@ -223,7 +210,6 @@ async function callLLMForBatch(
       const text = extractTextFromContent(rawContent);
       
       console.log("[" + batchName + "] Raw content type: " + typeof rawContent + ", extracted text length: " + text.length);
-      logToFile("[" + batchName + "] Response preview: " + text.slice(0, 300));
       
       const parsed = parseJsonFromResponse(text);
       
@@ -312,16 +298,12 @@ export async function filterRemoteEligibility(jobs: TrackedJob[], profile: UserP
     } catch (error: any) {
       // Graceful degradation: skip this batch, mark jobs as filtered (conservative)
       console.error("[AI Filter Stage 1] Batch " + (i + 1) + " failed permanently, skipping " + batch.length + " jobs: " + error.message);
-      logToFile("[Stage 1] BATCH " + (i + 1) + " FAILED: " + error.message + " — " + batch.length + " jobs skipped (treated as filtered)");
       skippedJobs.push(...batch);
     }
   }
   
   console.log("[AI Filter Stage 1] All batches done. Got " + allResults.length + " results, " + skippedJobs.length + " skipped");
   
-  logToFile("\n=== STAGE 1: Remote/Location Filter ===");
-  logToFile("User: " + profile.city + ", " + profile.state + " | Preference: " + profile.remotePreference);
-  logToFile("Total analyzed: " + allResults.length + " | Skipped: " + skippedJobs.length);
   
   // Determine eligible based on preference
   let eligibleJobIds: Set<string>;
@@ -387,13 +369,10 @@ export async function filterDegreeRequirements(jobs: TrackedJob[], profile: User
       allResults.push(...batchResults);
     } catch (error: any) {
       console.error("[AI Filter Stage 2] Batch " + (i + 1) + " failed, skipping " + batch.length + " jobs: " + error.message);
-      logToFile("[Stage 2] BATCH " + (i + 1) + " FAILED: " + error.message);
       skippedJobs.push(...batch);
     }
   }
   
-  logToFile("\n=== STAGE 2: Degree Requirement Filter ===");
-  logToFile("User Education: " + userEducation + " | Analyzed: " + allResults.length + " | Skipped: " + skippedJobs.length);
   
   const eligibleJobIds = new Set(
     allResults.filter(j => j.degree_requirement === "preferred" || j.degree_requirement === "not_required").map(j => j.job_id)
@@ -447,13 +426,10 @@ export async function filterExperienceRequirements(jobs: TrackedJob[], profile: 
       allResults.push(...batchResults);
     } catch (error: any) {
       console.error("[AI Filter Stage 3] Batch " + (i + 1) + " failed, skipping " + batch.length + " jobs: " + error.message);
-      logToFile("[Stage 3] BATCH " + (i + 1) + " FAILED: " + error.message);
       skippedJobs.push(...batch);
     }
   }
   
-  logToFile("\n=== STAGE 3: Experience Requirement Filter ===");
-  logToFile("User Experience: " + profile.yearsExperience + " years | Analyzed: " + allResults.length + " | Skipped: " + skippedJobs.length);
   
   const eligibleJobIds = new Set(
     allResults.filter(j => j.experience_requirement === "acceptable").map(j => j.job_id)
@@ -537,8 +513,6 @@ export async function batchAnalyzeJobs(
   if (userProfile.salaryFilterEnabled && userProfile.minSalary && userProfile.minSalary > 0) {
     const minSalary = userProfile.minSalary;
     console.log("[AI Filter] Salary soft filter: minimum $" + minSalary.toLocaleString() + "/year");
-    logToFile("\n=== SALARY SOFT FILTER ===");
-    logToFile("Minimum salary: $" + minSalary.toLocaleString() + "/year");
     
     salaryFiltered = [];
     finalEligible = [];

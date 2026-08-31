@@ -1,5 +1,5 @@
 /**
- * Jooble — Tier 1 real API source. See DECISIONS.md D-019.
+ * Jooble — Tier 1 real API source.
  *
  * Aggregator covering many job-board sources. POST request body, API key
  * embedded in the URL path. Requires a partner API key (manual approval —

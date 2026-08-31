@@ -1,4 +1,3 @@
-import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import {
   getActiveProviderLabel,
@@ -9,7 +8,6 @@ import {
 import { personalizedRouter } from "./routers/index";
 import { indeedRouter } from "./routers_indeed";
 import { onboardingRouter } from "./routers_onboarding";
-import { debugStagesRouter } from "./routers_debug_stages";
 import { settingsRouter } from "./routers_settings";
 import { presetsRouter } from "./routers_presets";
 import { notesRouter } from "./routers_notes";
@@ -17,13 +15,10 @@ import { scrapersRouter } from "./routers_scrapers";
 import { automationRouter } from "./routers_automation";
 
 export const appRouter = router({
-  system: systemRouter,
-
-  // Auth shim — no real login in self-hosted mode, but the frontend still
-  // calls auth.me on every page load. Returns the constant local user.
+  // The frontend reads this local state row on every page load. There is no
+  // login or remote identity provider.
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(() => ({ success: true }) as const),
   }),
 
   environment: router({
@@ -47,7 +42,6 @@ export const appRouter = router({
   personalized: personalizedRouter,
   indeed: indeedRouter,
   onboarding: onboardingRouter,
-  debugStages: debugStagesRouter,
   settings: settingsRouter,
   presets: presetsRouter,
   notes: notesRouter,

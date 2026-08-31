@@ -1,6 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle2, Loader2 } from 'lucide-react';
-import { useDebugMode } from '@/contexts/DebugModeContext';
 
 export interface TerminalBoxProps {
   title: string;
@@ -9,8 +8,7 @@ export interface TerminalBoxProps {
   progress?: { current: number; total: number };
   spawnFrom?: { x: number; y: number; width: number; height: number };
   onComplete?: () => void;
-  id?: string; // Unique ID for saving position
-  isDebugPreview?: boolean; // Show as debug preview
+  id?: string;
 }
 
 export function TerminalBox({
@@ -20,12 +18,8 @@ export function TerminalBox({
   progress,
   spawnFrom,
   onComplete,
-  id,
-  isDebugPreview = false,
 }: TerminalBoxProps) {
-  const { isDebugMode } = useDebugMode();
   const [isSpawning, setIsSpawning] = useState(true);
-  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     // Spawn animation completes after 300ms
@@ -83,20 +77,17 @@ export function TerminalBox({
 
 
 
-  if (!isVisible) return null;
-
   return (
     <div
       className={`
         terminal-box
         bg-black/90 backdrop-blur-sm
-        border ${isDebugPreview ? 'border-orange-500/70' : getStatusColor()}
+        border ${getStatusColor()}
         rounded-md p-3
         font-mono text-xs
         transition-all duration-300 ease-out
         ${status === 'running' ? 'shadow-lg' : ''}
         ${isSpawning ? 'spawning' : ''}
-        ${isDebugPreview ? 'shadow-orange-500/50' : ''}
         animate-fade-in
       `}
       style={{
@@ -107,9 +98,6 @@ export function TerminalBox({
       <div className="flex items-center gap-2 mb-1">
         {getStatusIcon()}
         <span className="text-green-400 font-semibold">{title}</span>
-        {isDebugPreview && (
-          <span className="ml-auto text-orange-400 text-[10px] font-bold">DEBUG PREVIEW</span>
-        )}
       </div>
 
       {/* Message */}

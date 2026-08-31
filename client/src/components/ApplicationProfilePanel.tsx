@@ -311,7 +311,7 @@ export function ApplicationProfilePanel() {
             Primary résumé file
           </CardTitle>
           <CardDescription>
-            Upload the PDF or Word file the Chrome agent should attach to
+            Upload the PDF or Word file the in-browser AI agent should attach to
             applications. This is separate from the résumé text saved with your
             search profile.
           </CardDescription>

@@ -7,7 +7,6 @@ import { lazy, Suspense, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { AppearanceProvider } from "./contexts/AppearanceContext";
-import { DebugModeProvider } from "./contexts/DebugModeContext";
 import { TopNav } from "./components/TopNav";
 import { SubNav, SubNavProvider } from "./components/SubNav";
 import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
@@ -26,11 +25,6 @@ const AppliedJobs = lazy(() =>
     default: module.AppliedJobs,
   }))
 );
-const ConfigDebug = lazy(() =>
-  import("./pages/ConfigDebug").then(module => ({
-    default: module.ConfigDebug,
-  }))
-);
 const JobPreferences = lazy(() =>
   import("./pages/JobPreferences").then(module => ({
     default: module.JobPreferences,
@@ -42,6 +36,8 @@ const Analytics = lazy(() =>
 const SettingsPage = lazy(() =>
   import("./pages/Settings").then(module => ({ default: module.SettingsPage }))
 );
+const ShowroomFictionalEmployer = lazy(() => import("./pages/ShowroomFictionalEmployer"));
+const ShowroomGmailConnected = lazy(() => import("./pages/ShowroomGmailConnected"));
 function RouteLoading() {
   return (
     <div className="min-h-screen flex items-center justify-center text-muted-foreground gap-2">
@@ -115,10 +111,6 @@ const GuardedAnalytics = () => (
 const GuardedSettings = () => (
   <RequireOnboardingComplete component={SettingsPage} />
 );
-const GuardedConfigDebug = () => (
-  <RequireOnboardingComplete component={ConfigDebug} />
-);
-
 function Router() {
   return (
     <Suspense fallback={<RouteLoading />}>
@@ -131,7 +123,8 @@ function Router() {
         <Route path={"/preferences"} component={GuardedPreferences} />
         <Route path={"/analytics"} component={GuardedAnalytics} />
         <Route path={"/settings"} component={GuardedSettings} />
-        <Route path={"/config-debug"} component={GuardedConfigDebug} />
+        <Route path={"/showroom/fictional-employer"} component={ShowroomFictionalEmployer} />
+        <Route path={"/showroom/gmail-connected"} component={ShowroomGmailConnected} />
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />
       </Switch>
@@ -147,7 +140,8 @@ const BARE_ROUTES = new Set(["/onboarding"]);
 function AppShell() {
   const [location] = useLocation();
   const isShowroom = import.meta.env.VITE_SHOWROOM_MODE === "true";
-  if (BARE_ROUTES.has(location)) {
+  const isShowroomUtilityPage = location.startsWith("/showroom/");
+  if (BARE_ROUTES.has(location) || isShowroomUtilityPage) {
     return (
       <main>
         <Router />
@@ -170,7 +164,10 @@ function AppShell() {
               fontSize: 13,
             }}
           >
-            <strong>Interactive showroom:</strong> this is the real Job Matrix interface using deterministic fictional data. Actions run only in this browser and reset when the page reloads; no scraper, AI provider, upload, account, email, or payment service is contacted.
+            <strong>Interactive showroom:</strong> this is the real Job Matrix
+            interface using deterministic fictional data. Actions run only in
+            this browser and reset when the page reloads; no scraper, AI
+            provider, upload, account, email, or payment service is contacted.
           </aside>
         )}
         <TopNav />
@@ -210,7 +207,7 @@ function AppShell() {
             <span className="mono">
               Job Matrix · source-available · bring your own AI
             </span>
-            <span className="mono">v0.2.0-beta · you approve every submission</span>
+            <span className="mono">v1.0.0 · you approve every submission</span>
           </div>
         </footer>
       </div>
@@ -222,13 +219,11 @@ function App() {
   return (
     <ErrorBoundary>
       <AppearanceProvider>
-        <DebugModeProvider>
-          <TooltipProvider>
-            <Toaster />
-            <KeyboardShortcuts />
-            <AppShell />
-          </TooltipProvider>
-        </DebugModeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <KeyboardShortcuts />
+          <AppShell />
+        </TooltipProvider>
       </AppearanceProvider>
     </ErrorBoundary>
   );

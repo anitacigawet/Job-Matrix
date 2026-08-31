@@ -1,5 +1,5 @@
 /**
- * RemoteOK — Tier 1 real API source. See DECISIONS.md D-019.
+ * RemoteOK — Tier 1 real API source.
  *
  * No-auth API. Remote-only, tech-heavy listings. The endpoint returns a
  * single flat array with a "legal" notice as the first element; this
@@ -12,7 +12,7 @@ import type { JobSource, JobSourceInput } from "./index";
 import type { JobSearchResult } from "../routers_indeed";
 
 const REMOTEOK_URL = "https://remoteok.com/api";
-const REMOTEOK_UA = "JobMatrix/0.1 (https://github.com/anitacigawet/Job-Matrix)";
+const REMOTEOK_UA = "JobMatrix/1.0 (https://github.com/anitacigawet/Job-Matrix)";
 const REQUEST_TIMEOUT_MS = 20_000;
 
 interface RemoteOKJob {

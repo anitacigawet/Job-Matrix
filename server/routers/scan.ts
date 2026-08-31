@@ -3,24 +3,21 @@
  * Handles: Start New Scan, AI Job Filtering, AI Match Scoring, Database Cleanup
  */
 
-import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
-import { z } from "zod";
+import { protectedProcedure, router } from "../_core/trpc";
 import { searchJobs, type SupportedPlatform } from "../routers_indeed";
 import { bulkSaveTrackedJobs, createJobScanHistory, updateJobScanHistory, getActiveJobTitles } from "../db";
 import { loadUserProfileForFilter, loadJobSearchCriteria, loadEnabledPlatforms } from "../user-profile";
 import { filterRemoteEligibility, filterDegreeRequirements, filterExperienceRequirements } from "../ai-job-filter-csv";
 import { scoreJobFit } from "../services/dedup-and-scoring";
 import { getDb } from "../db";
-import { trackedJobs, jobScanHistory, userJobTitles, userProfiles, searchPresets, applicationNotes, debugLogs, users, appliedJobs, applicationProfiles, inboxMessages } from "../../drizzle/schema";
+import { trackedJobs, jobScanHistory, userJobTitles, userProfiles, searchPresets, applicationNotes, users, appliedJobs, applicationProfiles, inboxMessages, userSettings, scraperHealth } from "../../drizzle/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
-import { killAllScrapeProcesses, killScrapeProcessesForScan } from "../scrape-process-registry";
+import { killAllScrapeProcesses } from "../scrape-process-registry";
 import { normalizeStoredJobSource } from "../services/job-source-id";
 import fs from "node:fs";
 import path from "node:path";
 import { ENV } from "../_core/env";
-import { randomUUID } from "node:crypto";
-import { reserveHostedSearch } from "../services/control-plane";
-import { hostedWorkCoordinator } from "../services/hosted-work-coordinator";
+import { clearStoredSettings } from "../_core/settings";
 
 const OPERATION_CONTROL_POLL_MS = 2000;
 async function enforceOperationControls(scanId: number, db: any) {
@@ -38,9 +35,6 @@ async function enforceOperationControls(scanId: number, db: any) {
     }
 
     if (scan.operationPaused) {
-      if (ENV.hostedMode) {
-        throw new Error("Paused operations are not retained on the hosted service. Start a new operation.");
-      }
       await new Promise(resolve => setTimeout(resolve, OPERATION_CONTROL_POLL_MS));
       continue;
     }
@@ -64,13 +58,6 @@ async function getLatestRunningScanForUser(userId: number, db: any) {
   return runningScans[0] ?? null;
 }
 
-function withHostedAiOperation<T>(
-  ctx: { hosted?: boolean; user: { id: number } },
-  operation: () => Promise<T>,
-): Promise<T> {
-  return ctx.hosted ? hostedWorkCoordinator.runAi(ctx.user.id, operation) : operation();
-}
-
 export const scanRouter = router({
   
   /**
@@ -78,22 +65,13 @@ export const scanRouter = router({
    * Searches all job titles across all locations (dynamic from user profile)
    * Saves ALL jobs to database WITHOUT AI filtering
    */
-  runGlobalSearch: adminProcedure
-    .input(z.object({ requestId: z.string().uuid() }).optional())
-    .mutation(async ({ ctx, input }) => {
+  runGlobalSearch: protectedProcedure.mutation(async ({ ctx }) => {
     const executeSearch = async () => {
 
     // Load dynamic search criteria from user profile
-    const loadedSearchCriteria = await loadJobSearchCriteria(ctx.user.id);
-    const searchCriteria = ctx.hosted
-      ? { locations: loadedSearchCriteria.locations.slice(0, 2), resultsPerTitle: 25 }
-      : loadedSearchCriteria;
+    const searchCriteria = await loadJobSearchCriteria(ctx.user.id);
     const userProfile = await loadUserProfileForFilter(ctx.user.id);
-    const configuredPlatforms = await loadEnabledPlatforms(ctx.user.id);
-    const hostedPlatforms = new Set<SupportedPlatform>(["indeed", "linkedin"]);
-    const enabledPlatforms = ctx.hosted
-      ? configuredPlatforms.filter(platform => hostedPlatforms.has(platform as SupportedPlatform))
-      : configuredPlatforms;
+    const enabledPlatforms = await loadEnabledPlatforms(ctx.user.id);
 
     if (enabledPlatforms.length === 0) enabledPlatforms.push("indeed");
 
@@ -103,8 +81,7 @@ export const scanRouter = router({
     const db = await getDb();
     if (!db) throw new Error("Database not available");
     
-    const allTargetTitles = await getActiveJobTitles(ctx.user.id);
-    const targetTitles = ctx.hosted ? allTargetTitles.slice(0, 3) : allTargetTitles;
+    const targetTitles = await getActiveJobTitles(ctx.user.id);
     
     if (targetTitles.length === 0) {
       throw new Error("No job titles configured. Please complete onboarding first.");
@@ -210,7 +187,6 @@ export const scanRouter = router({
             searchCriteria.resultsPerTitle,
             336, // 14 days
             enabledPlatforms as SupportedPlatform[],
-            { userId: ctx.user.id, scanId },
           );
 
           if (!result.success) {
@@ -355,40 +331,13 @@ export const scanRouter = router({
     }
     };
 
-    if (!ctx.hosted) return executeSearch();
-
-    const outcome = await hostedWorkCoordinator.runSearch(
-      ctx.user.id,
-      () => reserveHostedSearch(ctx.identityEmail!, input?.requestId ?? randomUUID()),
-      executeSearch,
-    );
-    if (outcome.kind === "denied") {
-      const messages: Record<string, string> = {
-        "project-paused": "Job searches are temporarily paused by the site owner.",
-        "personal-limit-reached": "You have used today’s three job searches. Your allowance resets at midnight UTC.",
-        "site-limit-reached": "Job Matrix has reached today’s whole-site search ceiling. Searches reset at midnight UTC.",
-        "account-suspended": "This Job Matrix account is suspended.",
-      };
-      throw new Error(messages[outcome.reservation.reason ?? ""] ?? "This search was not admitted. No scraping was started.");
-    }
-    if (outcome.kind === "duplicate") {
-      return {
-        success: true,
-        totalJobsFound: 0,
-        newJobsFound: 0,
-        failedSearchCount: 0,
-        totalSearches: 0,
-        platformBreakdown: {},
-        message: "This search request was already accepted. Its existing progress or results were kept; no second search was started.",
-      };
-    }
-    return outcome.value;
+    return executeSearch();
   }),
 
   /**
    * PHASE 2: AI Job Filtering (Multi-Stage LLM Filtering)
    */
-  runAIAnalysis: adminProcedure.mutation(({ ctx }) => withHostedAiOperation(ctx, async () => {
+  runAIAnalysis: protectedProcedure.mutation(async ({ ctx }) => {
     console.log("[AI Job Filtering] Starting 3-stage LLM filtering");
     let scanId: number | undefined;
 
@@ -407,8 +356,7 @@ export const scanRouter = router({
             eq(trackedJobs.userId, ctx.user.id),
             isNull(trackedJobs.aiAnalysis)
           )
-        )
-        .limit(ctx.hosted ? 100 : Number.MAX_SAFE_INTEGER);
+        );
 
       if (unanalyzedJobs.length === 0) {
         console.log("[AI Job Filtering] No unanalyzed jobs found");
@@ -620,147 +568,12 @@ export const scanRouter = router({
       
       throw error;
     }
-  })),
-
-  /**
-   * TEST MODE: AI Job Filtering on First 20 Jobs
-   */
-  runAIAnalysisTest: adminProcedure.mutation(({ ctx }) => withHostedAiOperation(ctx, async () => {
-    console.log("[AI Job Filtering TEST] Starting test with first 20 jobs");
-    let scanId: number | undefined;
-
-    try {
-      const userProfile = await loadUserProfileForFilter(ctx.user.id);
-      
-      const db = await getDb();
-      if (!db) throw new Error("Database not available");
-      
-      const unanalyzedJobs = await db
-        .select()
-        .from(trackedJobs)
-        .where(
-          and(
-            eq(trackedJobs.userId, ctx.user.id),
-            isNull(trackedJobs.aiAnalysis)
-          )
-        )
-        .limit(20);
-
-      if (unanalyzedJobs.length === 0) {
-        return {
-          success: true,
-          totalAnalyzed: 0,
-          eligible: 0,
-          ineligible: 0,
-          message: "No unanalyzed jobs found",
-        };
-      }
-
-      scanId = await createJobScanHistory({
-        userId: ctx.user.id,
-        platform: "indeed",
-        scanType: "ai_analysis",
-        searchTerms: "AI Job Filtering TEST - First 20 Jobs",
-        location: "Test Mode",
-        radiusMiles: 0,
-        totalJobsFound: unanalyzedJobs.length,
-        newJobsFound: 0,
-        status: "running",
-        currentPhase: `Stage 1: Remote/${userProfile.state} Eligibility`,
-        currentProgress: 0,
-        totalProgress: unanalyzedJobs.length,
-        progressMessage: "Starting test analysis...",
-        lastProgressUpdate: new Date(),
-      });
-
-      // Stage 1
-      await updateJobScanHistory(scanId, {
-        currentPhase: `Stage 1: Remote/${userProfile.state} Eligibility`,
-        progressMessage: `Testing remote work eligibility for ${userProfile.state}...`,
-        lastProgressUpdate: new Date(),
-      });
-
-      const stage1Result = await filterRemoteEligibility(unanalyzedJobs, userProfile);
-
-      for (const job of stage1Result.filtered) {
-        await db.update(trackedJobs).set({
-          aiAnalysis: { eligible: false, reason: `Not remote or excludes ${userProfile.state}`, analyzedAt: new Date().toISOString() },
-        }).where(eq(trackedJobs.id, job.id));
-      }
-
-      if (stage1Result.eligible.length === 0) {
-        await updateJobScanHistory(scanId, { status: "completed", completedAt: new Date() });
-        return { success: true, totalAnalyzed: unanalyzedJobs.length, eligible: 0, ineligible: unanalyzedJobs.length, message: `TEST: Analyzed ${unanalyzedJobs.length} jobs - 0 eligible` };
-      }
-
-      // Stage 2
-      await updateJobScanHistory(scanId, {
-        currentPhase: "Stage 2: Degree Requirements",
-        progressMessage: `Testing degree requirements (user: ${userProfile.educationLevel})...`,
-        lastProgressUpdate: new Date(),
-      });
-
-      const stage2Result = await filterDegreeRequirements(stage1Result.eligible, userProfile);
-
-      for (const job of stage2Result.filtered) {
-        await db.update(trackedJobs).set({
-          aiAnalysis: { eligible: false, reason: `Requires education beyond ${userProfile.educationLevel}`, analyzedAt: new Date().toISOString() },
-        }).where(eq(trackedJobs.id, job.id));
-      }
-
-      if (stage2Result.eligible.length === 0) {
-        await updateJobScanHistory(scanId, { status: "completed", completedAt: new Date() });
-        return { success: true, totalAnalyzed: unanalyzedJobs.length, eligible: 0, ineligible: unanalyzedJobs.length, message: `TEST: Analyzed ${unanalyzedJobs.length} jobs - 0 eligible` };
-      }
-
-      // Stage 3
-      await updateJobScanHistory(scanId, {
-        currentPhase: "Stage 3: Experience Requirements",
-        progressMessage: `Testing experience requirements (user: ${userProfile.yearsExperience} years)...`,
-        lastProgressUpdate: new Date(),
-      });
-
-      const stage3Result = await filterExperienceRequirements(stage2Result.eligible, userProfile);
-
-      for (const job of stage3Result.filtered) {
-        await db.update(trackedJobs).set({
-          aiAnalysis: { eligible: false, reason: `Requires more than ${userProfile.yearsExperience} years experience`, analyzedAt: new Date().toISOString() },
-        }).where(eq(trackedJobs.id, job.id));
-      }
-
-      for (const job of stage3Result.eligible) {
-        await db.update(trackedJobs).set({
-          aiAnalysis: { eligible: true, reason: "Meets all requirements", analyzedAt: new Date().toISOString() },
-        }).where(eq(trackedJobs.id, job.id));
-      }
-
-      await updateJobScanHistory(scanId, {
-        status: "completed",
-        completedAt: new Date(),
-        progressMessage: `TEST complete: ${stage3Result.eligible.length} eligible jobs found`,
-      });
-
-      return {
-        success: true,
-        totalAnalyzed: unanalyzedJobs.length,
-        eligible: stage3Result.eligible.length,
-        ineligible: unanalyzedJobs.length - stage3Result.eligible.length,
-        message: `TEST: Analyzed ${unanalyzedJobs.length} jobs - ${stage3Result.eligible.length} eligible`,
-      };
-
-    } catch (error: any) {
-      console.error("[AI Job Filtering TEST] Error:", error);
-      if (scanId) {
-        await updateJobScanHistory(scanId, { status: "failed", errorMessage: error.message, completedAt: new Date() });
-      }
-      throw error;
-    }
-  })),
+  }),
 
   /**
    * PHASE 3: Database Cleanup
    */
-  cleanDatabase: adminProcedure.mutation(async ({ ctx }) => {
+  cleanDatabase: protectedProcedure.mutation(async ({ ctx }) => {
     console.log("[Database Cleanup] Removing ALL tracked jobs");
 
     try {
@@ -812,9 +625,6 @@ export const scanRouter = router({
    * Pause the current operation
    */
   pauseOperation: protectedProcedure.mutation(async ({ ctx }) => {
-    if (ctx.hosted) {
-      throw new Error("Pause is not available for hosted operations. Cancel the operation and start a new one when ready.");
-    }
     console.log("[Pause] Pausing current operation");
 
     try {
@@ -845,9 +655,6 @@ export const scanRouter = router({
    * Resume a paused operation
    */
   resumeOperation: protectedProcedure.mutation(async ({ ctx }) => {
-    if (ctx.hosted) {
-      throw new Error("Hosted operations do not retain a paused worker. Start a new operation instead.");
-    }
     console.log("[Resume] Resuming paused operation");
 
     try {
@@ -905,9 +712,7 @@ export const scanRouter = router({
       // enforceOperationControls only picks up the cancel flag at
       // between-search checkpoints — which can be tens of seconds away
       // when JobSpy is mid-request.
-      const killed = ctx.hosted
-        ? killScrapeProcessesForScan(ctx.user.id, scanId)
-        : killAllScrapeProcesses();
+      const killed = killAllScrapeProcesses();
       console.log(`[Cancel] Operation ${scanId} cancelled (sent SIGTERM to ${killed.count} subprocess(es))`);
       return {
         success: true,
@@ -925,7 +730,7 @@ export const scanRouter = router({
    * PHASE 3: AI Match Scoring
    * Scores eligible jobs against the user's profile using LLM
    */
-  runFitScoring: adminProcedure.mutation(({ ctx }) => withHostedAiOperation(ctx, async () => {
+  runFitScoring: protectedProcedure.mutation(async ({ ctx }) => {
     console.log("[AI Match Scoring] Starting LLM-powered fit scoring");
     let scanId: number | undefined;
 
@@ -950,7 +755,7 @@ export const scanRouter = router({
         if (!job.aiAnalysis) return false;
         const analysis = job.aiAnalysis as any;
         return analysis.eligible === true && !analysis.fitScore;
-      }).slice(0, ctx.hosted ? 200 : undefined);
+      });
 
       if (eligibleJobs.length === 0) {
         return {
@@ -1046,33 +851,15 @@ export const scanRouter = router({
       }
       throw error;
     }
-  })),
+  }),
 
-  /**
-   * EMERGENCY: Nuke everything
-   * Clears all user-related data and resets onboarding
-   */
-  nukeEverything: adminProcedure.mutation(async ({ ctx }) => {
+  /** Clear all locally stored Job Matrix data and return to onboarding. */
+  nukeEverything: protectedProcedure.mutation(async ({ ctx }) => {
     const db = await getDb();
     const userId = ctx.user.id;
 
-    console.log(`[Full System Reset] Nuking all data for user ${userId}`);
-
-    // A reset must stop serving the user's résumé from the loopback asset
-    // route. Preserve recoverability by moving it beside the database instead
-    // of permanently deleting the file.
-    const [applicationProfile] = await db.select().from(applicationProfiles)
-      .where(eq(applicationProfiles.userId, userId)).limit(1);
-    if (!ctx.hosted && applicationProfile?.resumeFilePath && fs.existsSync(applicationProfile.resumeFilePath)) {
-      try {
-        const archiveDir = path.join(path.dirname(ENV.databasePath), "archived-assets");
-        fs.mkdirSync(archiveDir, { recursive: true });
-        const archivedName = `reset-${Date.now()}-${path.basename(applicationProfile.resumeFilePath)}`;
-        fs.renameSync(applicationProfile.resumeFilePath, path.join(archiveDir, archivedName));
-      } catch (error) {
-        console.warn("[Full System Reset] Could not archive the résumé asset:", error);
-      }
-    }
+    console.log(`[Local Data Reset] Clearing data for user ${userId}`);
+    killAllScrapeProcesses();
 
     // Delete everything in order of dependency
     await db.delete(inboxMessages).where(eq(inboxMessages.userId, userId));
@@ -1084,15 +871,22 @@ export const scanRouter = router({
     await db.delete(userProfiles).where(eq(userProfiles.userId, userId));
     await db.delete(applicationProfiles).where(eq(applicationProfiles.userId, userId));
     await db.delete(searchPresets).where(eq(searchPresets.userId, userId));
-    await db.delete(debugLogs).where(eq(debugLogs.userId, userId));
-    
+    await db.delete(userSettings).where(eq(userSettings.userId, userId));
+    await db.delete(scraperHealth);
+
     // Reset onboarding status
     await db.update(users)
       .set({ onboardingCompleted: 0 })
       .where(eq(users.id, userId));
 
-    console.log("[Full System Reset] Reset complete. User is now a fresh install.");
+    const dataDir = path.dirname(ENV.databasePath);
+    for (const directory of ["application-assets", "archived-assets"]) {
+      fs.rmSync(path.join(dataDir, directory), { recursive: true, force: true });
+    }
+    clearStoredSettings();
+
+    console.log("[Local Data Reset] Reset complete. User is now a fresh install.");
     
-    return { success: true, message: "System reset to factory defaults." };
+    return { success: true, message: "Local Job Matrix data reset." };
   }),
 });

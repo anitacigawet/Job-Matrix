@@ -2,9 +2,9 @@
  * Personalized Router - Composed from sub-routers
  * 
  * The retired 1500-line legacy router was split into:
- * - scan.ts: Global Search, AI Analysis, Test, Clean, Progress, Pause/Resume/Cancel
+ * - scan.ts: Global Search, AI Analysis, Clean, Progress, Pause/Resume/Cancel
  * - jobs.ts: Eligible jobs, Applied jobs, Bulk actions, Export, Detail
- * - stats.ts: Counts, timestamps, system stats, legacy scan, user profile
+ * - stats.ts: Counts, timestamps, system stats, user profile
  */
 
 import { router } from "../_core/trpc";
@@ -16,7 +16,6 @@ export const personalizedRouter = router({
   // Scan operations
   runGlobalSearch: scanRouter.runGlobalSearch,
   runAIAnalysis: scanRouter.runAIAnalysis,
-  runAIAnalysisTest: scanRouter.runAIAnalysisTest,
   cleanDatabase: scanRouter.cleanDatabase,
   getCurrentScanProgress: scanRouter.getCurrentScanProgress,
   pauseOperation: scanRouter.pauseOperation,

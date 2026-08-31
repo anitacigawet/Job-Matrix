@@ -6,26 +6,13 @@
  *
  *   pnpm run setup
  *
- * Currently does just one thing: install Node dependencies if missing.
- * Python setup is deliberately omitted — it used to create a per-project
- * `./venv` and `pip install -r requirements.txt`, but that path went stale:
- *
- *   - D-012 (2026-05-16) moved Python venv management into the runtime
- *     (`server/python_manager.ts`), which uses a shared per-user venv at
- *     `~/.job-matrix/venv_jobspy_shared/` and does per-package import
- *     checks on demand — installing only what's actually missing.
- *   - The old `./venv` path was unused at runtime, so first-time setup
- *     was building a venv nobody loaded.
- *   - And it broke on machines where `py -3` resolved to a Python version
- *     too new for prebuilt numpy wheels (Python 3.15 hit this in 2026-05).
- *
- * So: Node deps here, Python deps on first scraper use. The
- * runtime self-heals.
- *
- * Idempotent: re-running on an already-set-up tree is a no-op.
+ * Installs the exact Node dependency graph from pnpm-lock.yaml. Python is
+ * intentionally deferred until the first optional JobSpy search: the runtime
+ * validates Python 3.10+, creates data/python/jobspy-venv, and installs the
+ * exact python-jobspy version pinned in requirements.txt. The rest of Job
+ * Matrix does not require Python.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 
 const log = msg => console.log(`[setup] ${msg}`);
 const fail = msg => {
@@ -39,17 +26,12 @@ const run = (cmd, opts = {}) => {
   return result.status === 0;
 };
 
-// ── 1. Node dependencies ───────────────────────────────────────────
-if (!existsSync("node_modules")) {
-  log("Installing Node dependencies (pnpm install)...");
-  if (!run("pnpm install")) {
-    fail(
-      "pnpm install failed. Make sure pnpm is installed globally " +
-        "(https://pnpm.io/installation), then try again."
-    );
-  }
-} else {
-  log("Node dependencies already installed (node_modules/ present).");
+log("Installing Node dependencies from pnpm-lock.yaml...");
+if (!run("pnpm install --frozen-lockfile")) {
+  fail(
+    "pnpm install failed. Make sure pnpm is installed globally " +
+      "(https://pnpm.io/installation), then try again."
+  );
 }
 
 console.log("");
@@ -58,8 +40,5 @@ log(
   'Next: run "pnpm run dev" to start the dev server (defaults to http://localhost:3000).'
 );
 log("");
-log("Python: nothing to do here. The first time you run a scraper,");
-log("server/python_manager.ts creates / self-heals the shared venv");
-log(
-  "at ~/.job-matrix/venv_jobspy_shared/ and pip-installs only what's missing."
-);
+log("Python: optional JobSpy searches validate Python 3.10+ and create");
+log("data/python/jobspy-venv on first use from the pinned requirements.txt.");

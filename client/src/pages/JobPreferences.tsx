@@ -249,8 +249,8 @@ export function JobPreferences() {
     // NOTE: Not clearing input anymore so user can click "Generate variations" immediately after
   };
 
-  // Handle Quick Fill apply — append-only merge into existing titles
-  // (D-021). Parent dedups against existing titles before calling here,
+  // Handle Quick Fill apply — append-only merge into existing titles.
+  // Parent dedups against existing titles before calling here,
   // but we re-check just in case to keep this resilient.
   const handleQuickFillApply = (newTitles: string[]) => {
     const existingLower = new Set(

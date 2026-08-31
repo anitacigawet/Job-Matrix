@@ -1,5 +1,5 @@
 /**
- * Remotive — Tier 1 real API source. See DECISIONS.md D-019.
+ * Remotive — Tier 1 real API source.
  *
  * No-auth API. Remote-only positions across many categories. Returns a
  * single flat list per query (no pagination) — that simplifies the adapter

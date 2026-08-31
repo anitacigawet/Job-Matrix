@@ -34,13 +34,11 @@ logEnvironmentBanner();
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  const requestBodyLimit = ENV.hostedMode ? "1mb" : "15mb";
-  app.use(express.json({ limit: requestBodyLimit }));
-  app.use(express.urlencoded({ limit: requestBodyLimit, extended: true }));
-  app.get("/healthz", (_req, res) => res.json({ ok: true, mode: ENV.hostedMode ? "hosted" : "local" }));
+  app.use(express.json({ limit: "15mb" }));
+  app.use(express.urlencoded({ limit: "15mb", extended: true }));
+  app.get("/healthz", (_req, res) => res.json({ ok: true, mode: "local" }));
 
   app.get("/oauth/gmail/callback", async (req, res) => {
-    if (ENV.hostedMode) return res.status(404).end();
     const code = typeof req.query.code === "string" ? req.query.code : "";
     const state = typeof req.query.state === "string" ? req.query.state : "";
     const oauthError =
@@ -89,16 +87,14 @@ async function startServer() {
     path.dirname(ENV.databasePath),
     "application-assets"
   );
-  if (!ENV.hostedMode) {
-    app.use(
-      "/application-assets",
-      express.static(applicationAssetsRoot, {
-        fallthrough: false,
-        maxAge: 0,
-        dotfiles: "deny",
-      })
-    );
-  }
+  app.use(
+    "/application-assets",
+    express.static(applicationAssetsRoot, {
+      fallthrough: false,
+      maxAge: 0,
+      dotfiles: "deny",
+    })
+  );
 
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
@@ -110,23 +106,15 @@ async function startServer() {
 
   server.listen(port, LOOPBACK_HOST, () => {
     console.log(
-      `Server running on http://${LOOPBACK_HOST}:${port}/ (${ENV.hostedMode ? "private tunnel origin" : "local machine only"})`
+      `Server running on http://${LOOPBACK_HOST}:${port}/ (local machine only)`
     );
-    if (!ENV.hostedMode) {
-      startAutoScanScheduler();
-      startWeeklyDigestScheduler();
-      startInboxWatcher();
-    }
+    startAutoScanScheduler();
+    startWeeklyDigestScheduler();
+    startInboxWatcher();
   });
 }
 
 async function main() {
-  if (ENV.hostedMode && ENV.controlServiceToken.length < 32) {
-    throw new Error("HOSTED_MODE requires a CONTROL_SERVICE_TOKEN of at least 32 characters.");
-  }
-  if (ENV.hostedMode && Buffer.from(ENV.settingsEncryptionKey, "base64").length !== 32) {
-    throw new Error("HOSTED_MODE requires a base64-encoded 32-byte SETTINGS_ENCRYPTION_KEY.");
-  }
   await initDb();
   await startServer();
 }

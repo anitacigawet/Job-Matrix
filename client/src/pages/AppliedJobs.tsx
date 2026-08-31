@@ -830,7 +830,7 @@ export function AppliedJobs() {
                       </div>
 
                       {/* Legacy Quick Notes — read-only since the editor was
-                          retired in D11.13. Existing data is preserved; new
+                          retired. Existing data is preserved; new
                           notes go through Timeline (the MessageSquare button
                           in the action row). The `notes` column on
                           appliedJobs stays in the schema so this block can

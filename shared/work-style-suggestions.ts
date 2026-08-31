@@ -6,7 +6,7 @@
  * don't know what job titles to type into the search. This file holds
  * hand-picked starter packs they can grab as a baseline.
  *
- * Architecture (DECISIONS.md D-021):
+ * Design:
  *  - Single static dataset, no LLM, no API call.
  *  - Categories × levels (Low / Medium / High) × 8 titles each.
  *  - Per-level descriptions framed by *the work*, not the person.

@@ -110,7 +110,7 @@ export async function runAutoScanForUser(userId: number, settings: UserSettings)
 
   try {
     // Use the same tRPC procedures as the dashboard. This keeps enabled
-    // sources, profile locations/radius, active titles, watched companies,
+    // sources, profile locations/radius, active titles,
     // persistence, progress history, and the three-stage AI filter identical.
     const [{ appRouter }, { createInternalContext }] = await Promise.all([
       import("./routers"),

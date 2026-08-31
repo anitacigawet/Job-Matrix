@@ -34,16 +34,19 @@ export function ApplicationAssistantDialog({ jobId, open, onOpenChange }: {
 
   const data = packet.data;
   const applicant = data?.applicant;
+  const applicationUrl = data
+    ? new URL(data.job.jobUrl, window.location.origin).toString()
+    : "";
   const prompt = data ? [
     `Help me apply for ${data.job.title} at ${data.job.company}.`,
     ...data.instructions,
-    `The application URL is ${data.job.jobUrl}`,
+    `The application URL is ${applicationUrl}`,
   ].join("\n") : "";
 
   const copyPrompt = async () => {
     try {
       await navigator.clipboard.writeText(prompt);
-      toast.success("Chrome assistant instructions copied");
+      toast.success("Browser assistant instructions copied");
     } catch {
       toast.error("Could not copy to the clipboard");
     }
@@ -55,7 +58,7 @@ export function ApplicationAssistantDialog({ jobId, open, onOpenChange }: {
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2"><Bot className="h-5 w-5 text-purple-400" />Guided application</DialogTitle>
           <DialogDescription>
-            Job Matrix supplies your saved answers. The Chrome assistant can fill the employer form, but you approve the final submission.
+            Job Matrix supplies your saved answers. An in-browser AI agent can fill the employer form, but you approve the final submission.
           </DialogDescription>
         </DialogHeader>
 
@@ -100,10 +103,10 @@ export function ApplicationAssistantDialog({ jobId, open, onOpenChange }: {
             </section>
 
             <div className="rounded-lg border p-4 text-sm space-y-2">
-              <p className="font-medium">Using the Chrome extension</p>
+              <p className="font-medium">Using an in-browser AI agent</p>
               <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
                 <li>Click <strong>Open application</strong>.</li>
-                <li>Start the Chrome assistant and paste the copied instructions, or tell it to use this Job Matrix packet.</li>
+                <li>Start your browser assistant and paste the copied instructions, or tell it to use this Job Matrix packet.</li>
                 <li>Review every answer and personally approve the employer's final Submit button.</li>
                 <li>Return here and click <strong>I submitted it</strong>.</li>
               </ol>

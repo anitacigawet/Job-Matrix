@@ -91,7 +91,7 @@ describe("loadJobSearchCriteria", () => {
       id: 1,
       userId: 1,
       state: "Arizona",
-      city: "Kingman",
+      city: "Phoenix",
       willingToRelocate: false,
       remotePreference: "remote_only",
       educationLevel: "no_degree",
@@ -109,7 +109,7 @@ describe("loadJobSearchCriteria", () => {
     expect(criteria.locations[0].type).toBe("remote");
     expect(criteria.locations[0].description).toBe("Remote (Nationwide)");
     expect(criteria.locations[1].type).toBe("local");
-    expect(criteria.locations[1].searchTerm).toBe("Kingman, AZ");
+    expect(criteria.locations[1].searchTerm).toBe("Phoenix, AZ");
     expect(criteria.resultsPerTitle).toBe(50);
   });
 
@@ -174,7 +174,7 @@ describe("loadAIFilterRules", () => {
       id: 1,
       userId: 1,
       state: "Arizona",
-      city: "Kingman",
+      city: "Phoenix",
       willingToRelocate: false,
       remotePreference: "remote_only",
       educationLevel: "no_degree",

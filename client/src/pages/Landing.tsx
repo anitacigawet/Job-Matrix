@@ -60,8 +60,8 @@ export default function Landing() {
           <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-background/40 p-4 text-sm text-muted-foreground">
             <Database className="mt-0.5 h-5 w-5 shrink-0 text-blue-400" />
             <p>
-              Your profile, saved jobs, and application history remain separated from every other
-              account. AI is optional and uses a provider key you choose to supply.
+              Your profile, saved jobs, and application history stay in the local
+              data folder. AI is optional and uses a provider key you choose to supply.
             </p>
           </div>
 

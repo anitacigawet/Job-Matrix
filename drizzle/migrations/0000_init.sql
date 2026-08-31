@@ -1,48 +1,8 @@
 CREATE TABLE IF NOT EXISTS `users` (
   `id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-  `openId` text NOT NULL,
-  `name` text,
-  `email` text,
-  `loginMethod` text,
-  `role` text DEFAULT 'admin' NOT NULL,
   `onboarding_completed` integer DEFAULT 0 NOT NULL,
   `createdAt` integer DEFAULT (unixepoch()) NOT NULL,
-  `updatedAt` integer DEFAULT (unixepoch()) NOT NULL,
-  `lastSignedIn` integer DEFAULT (unixepoch()) NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS `users_openId_unique` ON `users` (`openId`);
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS `job_preferences` (
-  `id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-  `user_id` integer NOT NULL,
-  `target_titles` text NOT NULL,
-  `location` text NOT NULL,
-  `radius_miles` integer DEFAULT 50 NOT NULL,
-  `min_salary` integer,
-  `max_salary` integer,
-  `job_type` text,
-  `remote_only` integer DEFAULT 0 NOT NULL,
-  `monitoring_enabled` integer DEFAULT 1 NOT NULL,
-  `scan_interval_minutes` integer DEFAULT 30 NOT NULL,
-  `created_at` integer DEFAULT (unixepoch()) NOT NULL,
-  `updated_at` integer DEFAULT (unixepoch()) NOT NULL,
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS `job_preferences_user_id_unique` ON `job_preferences` (`user_id`);
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS `platform_credentials` (
-  `id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-  `user_id` integer NOT NULL,
-  `platform` text NOT NULL,
-  `cookies_json` text,
-  `cookie_string` text,
-  `local_storage_json` text,
-  `user_agent` text,
-  `created_at` integer DEFAULT (unixepoch()) NOT NULL,
-  `updated_at` integer DEFAULT (unixepoch()) NOT NULL,
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+  `updatedAt` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS `tracked_jobs` (
@@ -121,17 +81,6 @@ CREATE TABLE IF NOT EXISTS `job_scan_history` (
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE IF NOT EXISTS `debug_logs` (
-  `id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-  `user_id` integer,
-  `session_id` text NOT NULL,
-  `level` text NOT NULL,
-  `message` text NOT NULL,
-  `metadata` text,
-  `created_at` integer DEFAULT (unixepoch()) NOT NULL,
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
 CREATE TABLE IF NOT EXISTS `user_job_titles` (
   `id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
   `user_id` integer NOT NULL,
@@ -162,22 +111,6 @@ CREATE TABLE IF NOT EXISTS `user_profiles` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS `user_profiles_user_id_unique` ON `user_profiles` (`user_id`);
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS `invite_codes` (
-  `id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-  `code` text NOT NULL,
-  `created_by` integer,
-  `used_by` integer,
-  `used_at` integer,
-  `expires_at` integer,
-  `max_uses` integer DEFAULT 1 NOT NULL,
-  `current_uses` integer DEFAULT 0 NOT NULL,
-  `created_at` integer DEFAULT (unixepoch()) NOT NULL,
-  FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE set null,
-  FOREIGN KEY (`used_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE set null
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS `invite_codes_code_unique` ON `invite_codes` (`code`);
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS `user_settings` (
   `id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -229,5 +162,5 @@ CREATE TABLE IF NOT EXISTS `application_notes` (
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-INSERT OR IGNORE INTO `users` (`id`, `openId`, `name`, `email`, `role`, `onboarding_completed`)
-VALUES (1, 'local-user', 'Local User', 'local@localhost', 'admin', 0);
+INSERT OR IGNORE INTO `users` (`id`, `onboarding_completed`)
+VALUES (1, 0);

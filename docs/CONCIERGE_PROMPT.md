@@ -1,37 +1,42 @@
-# Concierge Prompt
+# Browser-agent prompt
 
-Drop-in prompt for a browser-driving AI agent (Claude in Chrome, the Gemini Chrome extension, or any agent with DOM access) to operate Job Matrix on your behalf.
+Use this with an AI agent that can read and operate the Job Matrix tab in your
+browser. Paste the prompt into the agent's chat, then open or share the Job
+Matrix tab with it.
 
-Copy the block below into your agent's chat as the first message, then share or open the Job Matrix tab. This prompt has been tested end-to-end with a live agent navigating the app autonomously — please use it **exactly as written**.
+## Setup and search
 
----
-
-## The prompt
-
-> Hello! Welcome to Job Matrix. Here, you will serve as my personal job-search concierge. To best effectively do this, your communication style within this chat must be a friendly, natural system, avoiding technical jargon. Remember that you don't need to explain every technical step you're taking, only what we've accomplished and what's next. If you need to ask me something, keep it simple and conversational to best flow with conversation and overloading the user with information.
+> Open Job Matrix and help me set it up for my job search. Keep your updates
+> short and conversational. Tell me what we completed and what you need from me
+> next instead of narrating every click.
 >
-> First, go ahead and check the settings to ensure that an API key is configured. If not break, from your task and inform the user so they can configure one!
-> Once the key is configured, go ahead and go back to the dashboard, and then we start with the actual brains.
+> Check Settings first. If I want optional AI filtering and no provider is
+> configured, stop and ask me to enter a key myself. Never ask me to paste a key
+> into this chat.
 >
-> If you see "profile not configured," that means that you need to click the setup profile button to go ahead and actually set up the profile on my behalf. After you read the page to get an understanding of what exactly you need, go ahead and ask!
+> If Job Matrix says my profile is not configured, open the profile setup page,
+> read the fields, and ask me only for information you do not already have. Do
+> not invent qualifications, preferences, or personal information.
 >
-> Ensure you pay careful attention to any details and buttons you submit
->
-> Once it's ready, please start the task to take control of my browser!
+> Once the profile and sources are ready, return to the dashboard. Ask before
+> starting a search, changing saved criteria, rejecting jobs in bulk, deleting
+> data, or taking any action outside Job Matrix.
 
----
+You only need a key for the AI provider you choose: Google Gemini, OpenAI, or
+DeepSeek. Enter it yourself in **Settings**, not in the agent's chat. Job-source
+credentials are also optional and should be entered the same way under
+**Settings → Data Sources**.
 
-## Notes
+## Guided application
 
-- **One key is enough.** Job Matrix supports Google Gemini (default), OpenAI, or DeepSeek. You only need to configure the provider you actually want to use.
-- **Paste the API key into Settings, not the chat.** Never give your raw API key to an AI agent — open the Job Matrix Settings page yourself and paste it directly into the provider's field.
-- **Adzuna credentials are optional but recommended.** Job Matrix can pull from a real public API (Adzuna) alongside the JobSpy scrapers — gives you a more reliable second source. Sign up at developer.adzuna.com (free) and paste your `app_id` + `app_key` into **Settings → Data Sources**. Same rule: don't share the values with the agent — paste them yourself.
-- **Personal Intelligence.** Most agents will pull on what they already know about you (from prior chat history or a shared profile) when filling out the preferences page. If your agent doesn't, paste a short summary of yourself — skills, experience, target salary, remote preference — alongside this prompt.
+When a job is in the application queue, open **Apply with AI** and give the
+browser agent this prompt:
 
-## Guided application prompt
+> Help me complete this application using the saved Job Matrix packet. Use only
+> answers that are present. Ask me whenever an answer is missing or ambiguous.
+> Never invent employment, education, demographic, disability, veteran,
+> criminal-history, or legal information. Stop on the employer's final review
+> page and wait for my approval before clicking Submit.
 
-When a job is in the Application queue, open its **Apply with AI** packet and give your browser agent this shorter task prompt:
-
-> Help me complete this application using the saved Job Matrix packet. Use only answers that are present. Ask me whenever an answer is missing or ambiguous, and never invent employment, education, demographic, disability, veteran, criminal-history, or legal information. Stop on the final review page and wait for my approval before clicking the employer's Submit button.
-
-After you approve and submit the employer form, return to the packet and choose **I submitted it** so response monitoring can match later email and Google Voice activity to the application.
+After submitting, return to Job Matrix and mark the application as submitted so
+its status and timeline remain current.

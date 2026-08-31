@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import type { ChildProcess } from "node:child_process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  killScrapeProcessesForScan,
+  killAllScrapeProcesses,
   registerScrapeProcess,
   terminateScrapeProcess,
 } from "./scrape-process-registry";
@@ -24,18 +24,18 @@ afterEach(() => {
 });
 
 describe("scrape process registry", () => {
-  it("signals only the requested tenant and scan", () => {
-    const owned = fakeChild();
-    const other = fakeChild();
-    registerScrapeProcess(owned, { userId: 1, scanId: 10 });
-    registerScrapeProcess(other, { userId: 2, scanId: 20 });
+  it("signals every active local scraper", () => {
+    const first = fakeChild();
+    const second = fakeChild();
+    registerScrapeProcess(first);
+    registerScrapeProcess(second);
 
-    expect(killScrapeProcessesForScan(1, 10, 60_000).count).toBe(1);
-    expect(owned.kill).toHaveBeenCalledWith("SIGTERM");
-    expect(other.kill).not.toHaveBeenCalled();
+    expect(killAllScrapeProcesses(60_000).count).toBe(2);
+    expect(first.kill).toHaveBeenCalledWith("SIGTERM");
+    expect(second.kill).toHaveBeenCalledWith("SIGTERM");
 
-    owned.emit("close", 0);
-    other.emit("close", 0);
+    first.emit("close", 0);
+    second.emit("close", 0);
   });
 
   it("force-kills a child that remains alive after SIGTERM", () => {

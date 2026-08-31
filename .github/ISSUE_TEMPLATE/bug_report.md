@@ -15,9 +15,10 @@ labels: bug
 
 
 **Environment**
-- Job Matrix version (from `package.json`):
+- Job Matrix version (shown in the app footer):
 - OS:
-- Active AI provider (Gemini / OpenAI / DeepSeek):
+- Release asset used (for example, Windows x64 portable):
+- Job source or optional AI provider involved:
 
-**Console / server-log output**
-<!-- F12 → Console for browser errors, or the terminal running `pnpm dev` for server errors. -->
+**Server-window or browser-console output**
+<!-- Remove API keys, tokens, résumé content, and personal details before pasting logs. -->

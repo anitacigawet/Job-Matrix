@@ -33,7 +33,7 @@ describe("Job Matrix showroom transport", () => {
     expect(initialJobs).toHaveLength(4);
     expect(initialJobs.every((job: any) => job.aiAnalysis?.eligible)).toBe(true);
 
-    await expect(run("personalized.runGlobalSearch", "mutation", { requestId: "showroom-test" })).resolves.toMatchObject({ success: true });
+    await expect(run("personalized.runGlobalSearch", "mutation")).resolves.toMatchObject({ success: true });
     await expect(run("personalized.runAIAnalysis", "mutation")).resolves.toMatchObject({ success: true });
     await expect(run("personalized.runFitScoring", "mutation")).resolves.toMatchObject({ success: true });
     await expect(run("personalized.markJobAsApplied", "mutation", { jobId: initialJobs[0].id })).resolves.toMatchObject({ success: true });

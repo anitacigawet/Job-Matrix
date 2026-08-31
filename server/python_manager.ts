@@ -1,118 +1,42 @@
-import { spawn, execSync, ChildProcess } from "child_process";
-import * as path from "path";
-import * as fs from "fs";
-import * as os from "os";
-import { fileURLToPath } from "url";
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const serverDir = path.dirname(__dirname);
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.dirname(__dirname);
 const IS_WINDOWS = process.platform === "win32";
-const VENV_DIR =
-  process.env.JOB_MATRIX_VENV_DIR ||
-  (IS_WINDOWS
-    ? path.join(os.homedir(), ".job-matrix", "venv_jobspy_shared")
-    : "/home/ubuntu/venv_jobspy_shared");
+const VENV_DIR = process.env.JOB_MATRIX_VENV_DIR
+  || path.resolve(process.cwd(), "data", "python", "jobspy-venv");
 const VENV_PYTHON = path.join(
   VENV_DIR,
   IS_WINDOWS ? "Scripts" : "bin",
-  IS_WINDOWS ? "python.exe" : "python3"
+  IS_WINDOWS ? "python.exe" : "python",
 );
-const VENV_PIP = path.join(
-  VENV_DIR,
-  IS_WINDOWS ? "Scripts" : "bin",
-  IS_WINDOWS ? "pip.exe" : "pip3"
-);
-// IMPORTANT: the PyPI package is `python-jobspy` (Bunsly/JobSpy). A different,
-// unrelated package called `jobspy` exists (it's Josiah Carlson's Redis job
-// coordinator) — installing that one will succeed but `import jobspy` will
-// still fail because it installs as the `jobs` module. Do not change the
-// first entry without reading the README's "Optional: enable scraping" note.
-// Map of PyPI package name → Python import name. Used for per-package
-// health checks so we can install only the packages that are missing
-// instead of nuking the entire venv every time we add a new dep.
-const REQUIRED_PACKAGES: { pkg: string; importName: string }[] = [
-  { pkg: "python-jobspy", importName: "jobspy" },
-  { pkg: "fastapi", importName: "fastapi" },
-  { pkg: "uvicorn", importName: "uvicorn" },
-  { pkg: "requests", importName: "requests" },
-];
 
-/**
- * Pick a Python interpreter to create the venv with.
- *
- * Precedence:
- *   1. `PYTHON_BIN` env var (explicit override)
- *   2. On Windows: try `py -3.12`, `py -3.11`, then `python` from PATH.
- *      We prefer 3.12 because some scraper dependencies (notably numpy) ship
- *      Windows ARM64 wheels for 3.12 but not earlier; on a 3.11-ARM64 venv
- *      pip will try to build numpy from source and fail.
- *   3. On macOS/Linux: `/usr/bin/python3`.
- */
-function getSystemPythonCommand(): string {
-  if (process.env.PYTHON_BIN?.trim()) {
-    return process.env.PYTHON_BIN.trim();
-  }
+type PythonCommand = { command: string; args: string[] };
 
-  if (IS_WINDOWS) {
-    // The `py` launcher is shipped with the official Python installer and
-    // is the recommended way to pick a specific version on Windows.
-    for (const version of ["-3.12", "-3.11"]) {
-      try {
-        execSync(`py ${version} --version`, {
-          stdio: ["pipe", "pipe", "pipe"],
-          timeout: 5000,
-        });
-        return `py ${version}`;
-      } catch {
-        // try next version
-      }
-    }
-    return "python";
-  }
-
-  return "/usr/bin/python3";
-}
-
-/**
- * Build a clean environment for Python subprocesses.
- * Removes PYTHONPATH, PYTHONHOME, and strips any uv/cpython paths from PATH
- * to prevent the cpython-3.13 installation from contaminating the venv.
- */
 function cleanPythonEnv(): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const [key, val] of Object.entries(process.env)) {
-    if (val === undefined) continue;
-    // Skip Python-specific env vars that could contaminate the venv
-    if (key === "PYTHONPATH" || key === "PYTHONHOME") continue;
-    env[key] = val;
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined || key === "PYTHONPATH" || key === "PYTHONHOME") continue;
+    env[key] = value;
   }
-  // Clean PATH: remove any uv/cpython entries
   if (env.PATH) {
-    env.PATH = env.PATH.split(path.delimiter)
-      .filter(
-        p =>
-          !p.includes("cpython-3.13") && !p.includes(".local/share/uv/python")
-      )
+    env.PATH = env.PATH
+      .split(path.delimiter)
+      .filter(entry => !entry.includes(".local/share/uv/python"))
       .join(path.delimiter);
   }
   return env;
 }
 
-/**
- * Probe whether a single Python module can be imported from the venv.
- * Returns true if `python -c "import <name>"` succeeds.
- */
-function venvHasPackage(
-  importName: string,
-  cleanEnv: Record<string, string>
-): boolean {
+function canRun(command: string, args: string[], env: Record<string, string>): boolean {
   try {
-    execSync(`${VENV_PYTHON} -c "import ${importName}"`, {
-      timeout: 15000,
-      stdio: ["pipe", "pipe", "pipe"],
-      env: cleanEnv,
+    execFileSync(command, args, {
+      env,
+      stdio: ["ignore", "ignore", "ignore"],
+      timeout: 15_000,
     });
     return true;
   } catch {
@@ -120,238 +44,135 @@ function venvHasPackage(
   }
 }
 
-/**
- * Install a single package into the existing venv (no wipe).
- */
-function installPackageIntoVenv(
-  pkg: string,
-  cleanEnv: Record<string, string>
-): void {
-  console.log(`[Python Venv] Installing ${pkg}...`);
-  execSync(`"${VENV_PIP}" install ${pkg}`, {
-    timeout: 180000,
-    stdio: ["pipe", "pipe", "pipe"],
-    env: cleanEnv,
-  });
+function isSupportedPython(
+  candidate: PythonCommand,
+  env: Record<string, string>,
+): boolean {
+  return canRun(
+    candidate.command,
+    [
+      ...candidate.args,
+      "-c",
+      "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)",
+    ],
+    env,
+  );
+}
+
+export function resolveSystemPython(env: Record<string, string>): PythonCommand {
+  const override = process.env.PYTHON_BIN?.trim();
+  if (override) {
+    const candidate = { command: override, args: [] };
+    if (!isSupportedPython(candidate, env)) {
+      throw new Error(`PYTHON_BIN must point to Python 3.10 or newer: ${override}`);
+    }
+    return candidate;
+  }
+
+  const candidates: PythonCommand[] = IS_WINDOWS
+    ? [
+        { command: "py", args: ["-3"] },
+        { command: "py", args: ["-3.12"] },
+        { command: "py", args: ["-3.11"] },
+        { command: "py", args: ["-3.10"] },
+        { command: "python", args: [] },
+        { command: "python3", args: [] },
+      ]
+    : [
+        { command: "python3.14", args: [] },
+        { command: "python3.13", args: [] },
+        { command: "python3.12", args: [] },
+        { command: "python3.11", args: [] },
+        { command: "python3.10", args: [] },
+        { command: "python3", args: [] },
+        { command: "python", args: [] },
+      ];
+
+  const selected = candidates.find(candidate => isSupportedPython(candidate, env));
+  if (!selected) {
+    throw new Error("Python 3.10 or newer was not found on PATH. Set PYTHON_BIN to its executable path.");
+  }
+  return selected;
+}
+
+function resolveRequirementsPath(): string {
+  const candidates = [
+    process.env.JOB_MATRIX_REQUIREMENTS_PATH,
+    path.resolve(process.cwd(), "requirements.txt"),
+    path.resolve(projectRoot, "requirements.txt"),
+    path.resolve(__dirname, "requirements.txt"),
+  ].filter((candidate): candidate is string => Boolean(candidate));
+  const resolved = candidates.find(candidate => fs.existsSync(candidate));
+  if (resolved) return resolved;
+  throw new Error(`requirements.txt was not found. Checked: ${candidates.join(", ")}`);
+}
+
+function expectedJobSpyVersion(requirementsPath: string): string {
+  const contents = fs.readFileSync(requirementsPath, "utf8");
+  const match = contents.match(/^python-jobspy==([^\s#]+)\s*(?:#.*)?$/m);
+  if (!match) throw new Error("requirements.txt must pin python-jobspy with ==.");
+  return match[1];
+}
+
+function venvHasExpectedJobSpy(
+  expectedVersion: string,
+  env: Record<string, string>,
+): boolean {
+  const script = [
+    "import importlib.metadata as metadata",
+    "import jobspy",
+    `assert metadata.version('python-jobspy') == ${JSON.stringify(expectedVersion)}`,
+  ].join("; ");
+  return canRun(VENV_PYTHON, ["-c", script], env);
 }
 
 /**
- * Ensure the Python venv exists and has all required packages.
- *
- * Strategy:
- *   1. If the venv's python itself doesn't run, wipe + rebuild from scratch.
- *   2. Otherwise, check each REQUIRED_PACKAGE individually and install
- *      only the missing ones. New packages added to REQUIRED_PACKAGES
- *      after the venv was provisioned will be installed without nuking
- *      everything else.
- *
- * This is intentionally lazy — it runs at the first scraper request, not at
- * server boot.
+ * Lazily create the JobSpy virtual environment and align it with the pinned
+ * root requirements file. No global Python packages are installed.
  */
 export async function ensurePythonVenv(): Promise<string> {
-  const cleanEnv = cleanPythonEnv();
+  const env = cleanPythonEnv();
 
-  // Step 1: Python-level health check. Does the venv's python even run?
-  if (fs.existsSync(VENV_PYTHON)) {
-    try {
-      execSync(`${VENV_PYTHON} -c "print('ok')"`, {
-        timeout: 15000,
-        stdio: ["pipe", "pipe", "pipe"],
-        env: cleanEnv,
-      });
-    } catch (err: any) {
-      console.warn(
-        "[Python Venv] venv python is broken:",
-        err?.stderr?.toString?.() || err?.message || "unknown error"
-      );
-      console.warn("[Python Venv] Wiping and rebuilding venv from scratch...");
-      try {
-        fs.rmSync(VENV_DIR, { recursive: true, force: true });
-      } catch (rmErr) {
-        console.warn("[Python Venv] Could not remove broken venv:", rmErr);
-      }
-    }
-  }
-
-  // Step 2: Create the venv if it doesn't exist.
-  try {
-    if (!fs.existsSync(VENV_DIR)) {
-      fs.mkdirSync(path.dirname(VENV_DIR), { recursive: true });
-      const pythonCmd = getSystemPythonCommand();
-      const quoted = pythonCmd.includes(" ") ? pythonCmd : `"${pythonCmd}"`;
-      execSync(`${quoted} -m venv "${VENV_DIR}"`, {
-        timeout: 30000,
-        env: cleanEnv,
-      });
-      console.log(
-        `[Python Venv] Created virtual environment using ${pythonCmd}`
-      );
-    }
-
-    // Step 3: For each required package, check + install if missing.
-    // This is the fix for the "added a new package but the existing venv
-    // doesn't know about it" problem. Idempotent.
-    const justInstalled: string[] = [];
-    for (const { pkg, importName } of REQUIRED_PACKAGES) {
-      if (!venvHasPackage(importName, cleanEnv)) {
-        installPackageIntoVenv(pkg, cleanEnv);
-        justInstalled.push(pkg);
-      }
-    }
-    if (justInstalled.length === 0) {
-      console.log(
-        "[Python Venv] Existing venv is healthy (all packages present)"
-      );
-    }
-
-    // Step 4: Final verification — the canonical "jobspy must import" check.
-    execSync(`${VENV_PYTHON} -c "import jobspy; print('ok')"`, {
-      timeout: 15000,
-      stdio: ["pipe", "pipe", "pipe"],
-      env: cleanEnv,
-    });
-
-    console.log("[Python Venv] Setup complete and verified");
-    return VENV_PYTHON;
-  } catch (error: any) {
-    console.error(
-      "[Python Venv] Failed to set up venv:",
-      error?.stderr?.toString?.() || error?.message || error
-    );
+  if (fs.existsSync(VENV_PYTHON) && !canRun(VENV_PYTHON, ["-c", "print('ok')"], env)) {
     throw new Error(
-      "Python venv setup failed. Global Search requires Python with JobSpy."
+      `The JobSpy virtual environment is not usable: ${VENV_DIR}. `
+      + "Remove that folder manually or set JOB_MATRIX_VENV_DIR to a new empty location.",
     );
+  }
+
+  try {
+    if (!fs.existsSync(VENV_PYTHON)) {
+      fs.mkdirSync(path.dirname(VENV_DIR), { recursive: true });
+      const python = resolveSystemPython(env);
+      execFileSync(python.command, [...python.args, "-m", "venv", VENV_DIR], {
+        env,
+        stdio: "inherit",
+        timeout: 60_000,
+      });
+      console.log(`[Python Venv] Created virtual environment at ${VENV_DIR}`);
+    }
+
+    const requirementsPath = resolveRequirementsPath();
+    const expectedVersion = expectedJobSpyVersion(requirementsPath);
+    if (!venvHasExpectedJobSpy(expectedVersion, env)) {
+      console.log(`[Python Venv] Installing pinned dependencies from ${requirementsPath}`);
+      execFileSync(
+        VENV_PYTHON,
+        ["-m", "pip", "install", "--disable-pip-version-check", "-r", requirementsPath],
+        { env, stdio: "inherit", timeout: 300_000 },
+      );
+    }
+
+    if (!venvHasExpectedJobSpy(expectedVersion, env)) {
+      throw new Error(`python-jobspy ${expectedVersion} could not be imported after installation.`);
+    }
+    return VENV_PYTHON;
+  } catch (error) {
+    console.error("[Python Venv] Setup failed:", error);
+    throw new Error("Python venv setup failed. Global Search requires Python with JobSpy.");
   }
 }
 
-/**
- * Get the path to the venv Python binary.
- * Returns the path without checking health (use ensurePythonVenv for that).
- */
-export function getVenvPython(): string {
-  return VENV_PYTHON;
-}
-
-/**
- * Get clean environment for spawning Python processes.
- * Use this when spawning Python child processes to avoid cpython contamination.
- */
 export function getCleanPythonEnv(): Record<string, string> {
   return cleanPythonEnv();
-}
-
-export class PythonProcessManager {
-  private searchProcess: ChildProcess | null = null;
-  private isInitialized = false;
-
-  async initialize(): Promise<void> {
-    if (this.isInitialized) return;
-
-    console.log("[Python Manager] Initializing...");
-
-    try {
-      // Ensure venv is ready before starting any Python processes
-      await ensurePythonVenv();
-
-      this.isInitialized = true;
-      console.log("[Python Manager] Python environment ready");
-    } catch (error) {
-      console.error("[Python Manager] Failed to initialize:", error);
-      // Don't throw — let the app start without Python
-      // Global Search will show a clear error if venv is missing
-    }
-  }
-
-  async shutdown(): Promise<void> {
-    console.log("[Python Manager] Shutting down...");
-
-    if (this.searchProcess) {
-      this.searchProcess.kill("SIGTERM");
-      this.searchProcess = null;
-    }
-
-    this.isInitialized = false;
-    console.log("[Python Manager] Shut down complete");
-  }
-
-  isReady(): boolean {
-    return this.isInitialized;
-  }
-
-  /**
-   * Run the backup Playwright-based scraper (ARM64 compatible)
-   */
-  async runBackupSearch(params: {
-    searchTerm: string;
-    location: string;
-  }): Promise<{
-    success: boolean;
-    jobs?: any[];
-    count: number;
-    error?: string;
-  }> {
-    const pythonPath = getVenvPython();
-    const scraperPath = path.join(
-      path.dirname(fileURLToPath(import.meta.url)),
-      "backup_scraper.py"
-    );
-    const cleanEnv = getCleanPythonEnv();
-
-    return new Promise(resolve => {
-      console.log(
-        `[Python Manager] Running backup scraper for "${params.searchTerm}" in ${params.location}...`
-      );
-
-      const child = spawn(
-        pythonPath,
-        [scraperPath, params.searchTerm, params.location],
-        {
-          env: cleanEnv,
-          stdio: ["pipe", "pipe", "pipe"],
-        }
-      );
-
-      let stdout = "";
-      let stderr = "";
-
-      child.stdout?.on("data", data => {
-        stdout += data.toString();
-      });
-      child.stderr?.on("data", data => {
-        stderr += data.toString();
-      });
-
-      child.on("close", code => {
-        if (code === 0) {
-          try {
-            const jobs = JSON.parse(stdout);
-            resolve({ success: true, jobs, count: jobs.length });
-          } catch (err) {
-            console.error(
-              "[Python Manager] Failed to parse backup scraper output:",
-              err
-            );
-            resolve({ success: false, count: 0, error: "Parse failure" });
-          }
-        } else {
-          console.error(
-            "[Python Manager] Backup scraper failed with code:",
-            code,
-            stderr
-          );
-          resolve({ success: false, count: 0, error: stderr });
-        }
-      });
-    });
-  }
-}
-
-// Singleton instance
-let pythonManager: PythonProcessManager | null = null;
-
-export function getPythonManager(): PythonProcessManager {
-  if (!pythonManager) {
-    pythonManager = new PythonProcessManager();
-  }
-  return pythonManager;
 }

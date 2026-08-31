@@ -1,12 +1,20 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import { type Server } from "http";
-import { nanoid } from "nanoid";
 import path from "path";
-import { createServer as createViteServer } from "vite";
-import viteConfig from "../../vite.config";
+import { pathToFileURL } from "url";
 
 export async function setupVite(app: Express, server: Server) {
+  // Keep all development-only imports behind this branch. The production
+  // server imports serveStatic() from this module, so top-level Vite imports
+  // would otherwise make a packaged build depend on the development toolchain.
+  const { createServer: createViteServer } = await import("vite");
+  const configUrl = pathToFileURL(
+    path.resolve(import.meta.dirname, "../..", "vite.config.ts")
+  ).href;
+  const { default: viteConfig } = (await import(configUrl)) as {
+    default: Record<string, unknown>;
+  };
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
@@ -36,7 +44,7 @@ export async function setupVite(app: Express, server: Server) {
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`
+        `src="/src/main.tsx?v=${Date.now()}"`
       );
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);

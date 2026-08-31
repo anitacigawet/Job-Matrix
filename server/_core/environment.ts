@@ -3,7 +3,6 @@ import {
   resolveProviderKey,
   resolveProviderModel,
 } from "./settings";
-import { ENV } from "./env";
 
 const PROVIDER_LABEL = {
   gemini: "Google Gemini",
@@ -11,15 +10,14 @@ const PROVIDER_LABEL = {
   deepseek: "DeepSeek",
 } as const;
 
-export type DeploymentEnvironment = "local" | "hosted";
-export function getDeploymentEnvironment(): DeploymentEnvironment { return ENV.hostedMode ? "hosted" : "local"; }
+export type DeploymentEnvironment = "local";
+export function getDeploymentEnvironment(): DeploymentEnvironment { return "local"; }
 
 export function getActiveProviderLabel(): string {
   return PROVIDER_LABEL[resolveActiveProvider()];
 }
 
 export function getEnvironmentLabel(): string {
-  if (ENV.hostedMode) return "Hosted (per-account AI settings)";
   const provider = resolveActiveProvider();
   const label = PROVIDER_LABEL[provider];
   const key = resolveProviderKey(provider);
@@ -29,7 +27,6 @@ export function getEnvironmentLabel(): string {
 }
 
 export function validateEnvironment(): string[] {
-  if (ENV.hostedMode) return [];
   const errors: string[] = [];
   const provider = resolveActiveProvider();
   if (!resolveProviderKey(provider)) {
@@ -43,7 +40,7 @@ export function validateEnvironment(): string[] {
 export function logEnvironmentBanner(): void {
   const errors = validateEnvironment();
   console.log("─────────────────────────────────────────");
-  console.log(`  Job Matrix — ${ENV.hostedMode ? "Hosted Build" : "Local Build"}`);
+  console.log("  Job Matrix — Local Build");
   console.log("─────────────────────────────────────────");
   console.log(`  • LLM:    ${getEnvironmentLabel()}`);
   if (errors.length > 0) {

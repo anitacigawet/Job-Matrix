@@ -133,9 +133,6 @@ export const automationRouter = router({
       base64: z.string().min(1).max(14 * 1024 * 1024),
     }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.hosted) {
-        throw new Error("Stored résumé files are not available on the hosted service. Keep your résumé on your device for browser-assisted applications.");
-      }
       const buffer = Buffer.from(input.base64, "base64");
       if (buffer.length === 0 || buffer.length > MAX_RESUME_BYTES) {
         throw new Error("Résumé files must be 10 MB or smaller.");

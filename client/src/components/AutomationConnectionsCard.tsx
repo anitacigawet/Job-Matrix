@@ -63,7 +63,12 @@ export function AutomationConnectionsCard() {
     onError: (error) => toast.error(getFriendlyApiErrorMessage(error)),
   });
   const testSlack = trpc.automation.testSlack.useMutation({
-    onSuccess: (result) => result.success ? toast.success("Test sent to Slack") : toast.error("Slack did not accept the test message"),
+    onSuccess: (result) => {
+      const message = (result as { message?: string }).message;
+      return result.success
+        ? toast.success(message ?? "Test sent to Slack")
+        : toast.error(message ?? "Slack did not accept the test message");
+    },
     onError: (error) => toast.error(getFriendlyApiErrorMessage(error)),
   });
   const updateMonitoring = trpc.automation.updateMonitoring.useMutation({

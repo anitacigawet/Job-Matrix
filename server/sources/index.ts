@@ -1,5 +1,5 @@
 /**
- * Tier-1 source adapters — see DECISIONS.md D-019.
+ * Tier-1 source adapters.
  *
  * A `JobSource` is the contract every Tier-1 (real API) data source implements.
  * Tier-2 scrapers go through the existing Python/JobSpy path in routers_indeed.ts.

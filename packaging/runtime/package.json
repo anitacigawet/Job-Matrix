@@ -1,0 +1,13 @@
+{
+  "name": "job-matrix-runtime-dependencies",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "sql.js": "1.14.1"
+  },
+  "packageManager": "pnpm@10.4.1",
+  "engines": {
+    "node": ">=22.22.0"
+  }
+}

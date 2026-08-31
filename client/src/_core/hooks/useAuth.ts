@@ -7,7 +7,7 @@ type UseAuthOptions = {
 };
 
 /**
- * Self-hosted, single-user shim.
+ * Local single-user shim.
  * Always returns the local user — no auth, no redirects.
  */
 export function useAuth(_options?: UseAuthOptions) {
@@ -29,8 +29,5 @@ export function useAuth(_options?: UseAuthOptions) {
   return {
     ...state,
     refresh: () => meQuery.refetch(),
-    logout: async () => {
-      /* no-op — nothing to log out of */
-    },
   };
 }

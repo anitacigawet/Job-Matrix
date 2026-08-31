@@ -71,9 +71,7 @@ export function ScraperHealthCard() {
           <CardTitle>Scraper Health</CardTitle>
         </div>
         <CardDescription className="pt-1">
-          Per-platform telemetry from your real scrape attempts. Honest labels — no marketing.
-          See <code className="text-xs bg-muted/30 px-1 rounded">docs/internal/SCRAPER_TRIAGE.md</code>{" "}
-          for known failure modes.
+          Recent results from each job source, including known failures.
         </CardDescription>
       </CardHeader>
       <CardContent>

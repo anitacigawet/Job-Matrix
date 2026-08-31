@@ -1,5 +1,5 @@
 /**
- * Work-style Quick Fill — DECISIONS.md D-021, Phase 15.
+ * Work-style Quick Fill.
  *
  * Curated job-title starter packs driven entirely by
  * `shared/work-style-suggestions.ts` — no LLM, no API call, no DB

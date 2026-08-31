@@ -9,23 +9,14 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { eq, and, gte, desc, lt, sql } from "drizzle-orm";
+import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { drizzle as drizzleProxy } from "drizzle-orm/sqlite-proxy";
 import initSqlJs, { type Database as SqlJsDatabase } from "sql.js";
-import { DatabaseSync as NativeDatabaseSync } from "node:sqlite";
 import {
-  InsertUser,
-  users,
-  platformCredentials,
-  debugLogs,
   trackedJobs,
   jobScanHistory,
   InsertTrackedJob,
   InsertJobScanHistory,
-  jobPreferences,
-  InsertJobPreferences,
-  inviteCodes,
-  InviteCode,
   userProfiles,
   InsertUserProfile,
   UserProfile,
@@ -38,9 +29,6 @@ import {
   InsertApplicationNote,
   ApplicationNote,
   scraperHealth,
-  watchedCompanies,
-  InsertWatchedCompany,
-  WatchedCompany,
 } from "../drizzle/schema";
 import * as schema from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -48,7 +36,6 @@ import { ENV } from "./_core/env";
 export const LOCAL_USER_ID = 1;
 
 let _sqliteDb: SqlJsDatabase | null = null;
-let _nativeDb: NativeDatabaseSync | null = null;
 let _drizzle: ReturnType<typeof drizzleProxy<typeof schema>> | null = null;
 
 function ensureDataDir(): void {
@@ -173,94 +160,10 @@ function cleanupOrphanedJobs(db: SqlJsDatabase): void {
   }
 }
 
-function migrationFiles(): string[] {
-  const migrationsDir = path.resolve(process.cwd(), "drizzle", "migrations");
-  if (!fs.existsSync(migrationsDir)) return [];
-  return fs.readdirSync(migrationsDir).filter(file => file.endsWith(".sql")).sort();
-}
-
-function applyNativeMigrations(db: NativeDatabaseSync): void {
-  db.exec(`CREATE TABLE IF NOT EXISTS __drizzle_migrations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    hash TEXT NOT NULL UNIQUE,
-    created_at INTEGER NOT NULL
-  )`);
-  const applied = new Set(
-    db.prepare("SELECT hash FROM __drizzle_migrations").all().map(row => String(row.hash)),
-  );
-  const migrationsDir = path.resolve(process.cwd(), "drizzle", "migrations");
-  for (const file of migrationFiles()) {
-    if (applied.has(file)) continue;
-    const statements = fs.readFileSync(path.join(migrationsDir, file), "utf8")
-      .split("--> statement-breakpoint")
-      .map(statement => statement.trim())
-      .filter(Boolean);
-    db.exec("BEGIN IMMEDIATE");
-    try {
-      for (const statement of statements) db.exec(statement);
-      db.prepare("INSERT INTO __drizzle_migrations(hash, created_at) VALUES (?, ?)")
-        .run(file, Date.now());
-      db.exec("COMMIT");
-      console.log(`[Database] Applied migration: ${file}`);
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
-    }
-  }
-}
-
-function cleanupNativeOrphanedJobs(db: NativeDatabaseSync): void {
-  try {
-    const result = db.prepare("SELECT COUNT(*) AS count FROM job_scan_history WHERE status = 'running'").get();
-    const count = Number(result?.count ?? 0);
-    if (count === 0) return;
-    db.prepare(`UPDATE job_scan_history
-      SET status = 'failed', error_message = ?, completed_at = unixepoch()
-      WHERE status = 'running'`)
-      .run("Orphaned scan — server restarted while in-flight");
-    console.log(`[Database] Cleaned up ${count} orphaned job scan row(s)`);
-  } catch (error) {
-    console.warn("[Database] Could not clean orphaned hosted scans:", error);
-  }
-}
-
-function createNativeDrizzle(db: NativeDatabaseSync) {
-  return drizzleProxy(
-    async (queryStr, params, method) => {
-      const statement = db.prepare(queryStr);
-      const values = (params ?? []) as any[];
-      if (method === "run") {
-        statement.run(...values);
-        return { rows: [] };
-      }
-      statement.setReturnArrays(true);
-      if (method === "get") {
-        return { rows: (statement.get(...values) as unknown[] | undefined) ?? [] };
-      }
-      return { rows: statement.all(...values) as unknown as unknown[][] };
-    },
-    { schema, casing: "snake_case" },
-  );
-}
-
 export async function initDb(): Promise<void> {
   if (_drizzle) return;
 
   ensureDataDir();
-  if (ENV.hostedMode) {
-    const nativeDb = new NativeDatabaseSync(ENV.databasePath);
-    nativeDb.exec("PRAGMA foreign_keys = ON");
-    nativeDb.exec("PRAGMA journal_mode = WAL");
-    nativeDb.exec("PRAGMA synchronous = NORMAL");
-    nativeDb.exec("PRAGMA busy_timeout = 5000");
-    applyNativeMigrations(nativeDb);
-    cleanupNativeOrphanedJobs(nativeDb);
-    _nativeDb = nativeDb;
-    _drizzle = createNativeDrizzle(nativeDb);
-    console.log(`[Database] Native hosted SQLite opened at ${ENV.databasePath}`);
-    return;
-  }
-
   const SQL = await initSqlJs();
   const buffer = fs.existsSync(ENV.databasePath)
     ? fs.readFileSync(ENV.databasePath)
@@ -317,85 +220,6 @@ export async function getDb() {
     );
   }
   return _drizzle;
-}
-
-// ============================================================================
-// USER MANAGEMENT
-// ============================================================================
-
-export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
-  }
-  const db = await getDb();
-
-  const setUpdates: Record<string, any> = {};
-  const values: InsertUser = { openId: user.openId };
-
-  for (const field of ["name", "email", "loginMethod"] as const) {
-    const v = user[field];
-    if (v !== undefined) {
-      values[field] = v ?? null;
-      setUpdates[field] = v ?? null;
-    }
-  }
-  if (user.lastSignedIn !== undefined) {
-    values.lastSignedIn = user.lastSignedIn;
-    setUpdates.lastSignedIn = user.lastSignedIn;
-  } else {
-    values.lastSignedIn = new Date();
-    setUpdates.lastSignedIn = new Date();
-  }
-  if (user.role !== undefined) {
-    values.role = user.role;
-    setUpdates.role = user.role;
-  }
-
-  await db
-    .insert(users)
-    .values(values)
-    .onConflictDoUpdate({ target: users.openId, set: setUpdates });
-}
-
-export async function getUserByOpenId(openId: string) {
-  const db = await getDb();
-  const result = await db
-    .select()
-    .from(users)
-    .where(eq(users.openId, openId))
-    .limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-// ============================================================================
-// INVITE CODES (kept for schema compatibility)
-// ============================================================================
-
-export async function getInviteCodeByCode(
-  code: string
-): Promise<InviteCode | undefined> {
-  const db = await getDb();
-  const result = await db
-    .select()
-    .from(inviteCodes)
-    .where(eq(inviteCodes.code, code))
-    .limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-export async function incrementInviteCodeUsage(
-  code: string,
-  userId: number
-): Promise<void> {
-  const db = await getDb();
-  await db
-    .update(inviteCodes)
-    .set({
-      currentUses: sql`${inviteCodes.currentUses} + 1`,
-      usedBy: userId,
-      usedAt: new Date(),
-    })
-    .where(eq(inviteCodes.code, code));
 }
 
 // ============================================================================
@@ -562,88 +386,8 @@ export async function updateUserProfileSkills(
 }
 
 // ============================================================================
-// JOB PREFERENCES
-// ============================================================================
-
-export async function saveJobPreferences(prefs: InsertJobPreferences) {
-  const db = await getDb();
-  const existing = await db
-    .select()
-    .from(jobPreferences)
-    .where(eq(jobPreferences.userId, prefs.userId))
-    .limit(1);
-
-  if (existing.length > 0) {
-    await db
-      .update(jobPreferences)
-      .set({
-        targetTitles: prefs.targetTitles,
-        location: prefs.location,
-        radiusMiles: prefs.radiusMiles,
-        minSalary: prefs.minSalary,
-        maxSalary: prefs.maxSalary,
-        jobType: prefs.jobType,
-        remoteOnly: prefs.remoteOnly,
-        monitoringEnabled: prefs.monitoringEnabled,
-        scanIntervalMinutes: prefs.scanIntervalMinutes,
-        updatedAt: new Date(),
-      })
-      .where(eq(jobPreferences.userId, prefs.userId));
-  } else {
-    await db.insert(jobPreferences).values(prefs);
-  }
-}
-
-export async function getJobPreferences(userId: number) {
-  const db = await getDb();
-  const result = await db
-    .select()
-    .from(jobPreferences)
-    .where(eq(jobPreferences.userId, userId))
-    .limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-// ============================================================================
 // TRACKED JOBS
 // ============================================================================
-
-export async function saveTrackedJob(job: InsertTrackedJob) {
-  const db = await getDb();
-  const existing = await db
-    .select()
-    .from(trackedJobs)
-    .where(
-      and(
-        eq(trackedJobs.userId, job.userId),
-        eq(trackedJobs.platform, job.platform),
-        eq(trackedJobs.jobId, job.jobId)
-      )
-    )
-    .limit(1);
-
-  if (existing.length > 0) {
-    await db
-      .update(trackedJobs)
-      .set({
-        lastSeenAt: new Date(),
-        title: job.title,
-        company: job.company,
-        location: job.location,
-        salaryMin: job.salaryMin,
-        salaryMax: job.salaryMax,
-      })
-      .where(eq(trackedJobs.id, existing[0].id));
-    return { isNew: false, job: existing[0] };
-  }
-
-  const [inserted] = await db
-    .insert(trackedJobs)
-    .values(job)
-    .returning({ id: trackedJobs.id });
-  const id = inserted.id;
-  return { isNew: true, job: { ...job, id } };
-}
 
 export async function bulkSaveTrackedJobs(jobs: InsertTrackedJob[]) {
   const db = await getDb();
@@ -669,10 +413,6 @@ export async function bulkSaveTrackedJobs(jobs: InsertTrackedJob[]) {
   const known = new Set(
     existingRows.map(row => `${row.platform}\u0000${row.jobId}`)
   );
-  let remainingHostedCapacity = ENV.hostedMode
-    ? Math.max(0, 5_000 - existingRows.length)
-    : Number.MAX_SAFE_INTEGER;
-
   for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
     const batch = jobs.slice(i, i + BATCH_SIZE);
     const pending: InsertTrackedJob[] = [];
@@ -683,12 +423,7 @@ export async function bulkSaveTrackedJobs(jobs: InsertTrackedJob[]) {
         continue;
       }
       known.add(key);
-      if (remainingHostedCapacity <= 0) {
-        skipped++;
-        continue;
-      }
       pending.push(job);
-      remainingHostedCapacity--;
     }
     if (pending.length > 0) {
       await db.insert(trackedJobs).values(pending);
@@ -701,53 +436,6 @@ export async function bulkSaveTrackedJobs(jobs: InsertTrackedJob[]) {
     }
   }
   return { newJobs, skipped };
-}
-
-export async function getTrackedJobs(
-  userId: number,
-  filters?: {
-    platform?: "indeed" | "glassdoor" | "linkedin" | "ziprecruiter";
-    status?: "new" | "viewed" | "applied" | "interested" | "rejected";
-    limit?: number;
-    offset?: number;
-  }
-) {
-  const db = await getDb();
-  const conditions = [eq(trackedJobs.userId, userId)];
-  if (filters?.platform)
-    conditions.push(eq(trackedJobs.platform, filters.platform));
-  if (filters?.status) conditions.push(eq(trackedJobs.status, filters.status));
-
-  const baseQuery = db
-    .select()
-    .from(trackedJobs)
-    .where(and(...conditions))
-    .orderBy(desc(trackedJobs.datePosted));
-
-  if (filters?.limit && filters?.offset) {
-    return await baseQuery.limit(filters.limit).offset(filters.offset);
-  } else if (filters?.limit) {
-    return await baseQuery.limit(filters.limit);
-  } else if (filters?.offset) {
-    return await baseQuery.offset(filters.offset);
-  }
-  return await baseQuery;
-}
-
-export async function updateJobStatus(
-  jobId: number,
-  status: "new" | "viewed" | "applied" | "interested" | "rejected",
-  userId?: number
-) {
-  const db = await getDb();
-  await db
-    .update(trackedJobs)
-    .set({ status })
-    .where(
-      userId
-        ? and(eq(trackedJobs.id, jobId), eq(trackedJobs.userId, userId))
-        : eq(trackedJobs.id, jobId)
-    );
 }
 
 // ============================================================================
@@ -801,43 +489,6 @@ export async function getRecentJobScans(userId: number, limit: number = 10) {
 }
 
 // ============================================================================
-// DEBUG LOGS
-// ============================================================================
-
-export async function saveDebugLog(
-  userId: number | undefined,
-  sessionId: string,
-  level: "info" | "success" | "warning" | "error",
-  message: string,
-  metadata?: string
-): Promise<void> {
-  const db = await getDb();
-  try {
-    await db.insert(debugLogs).values({
-      userId: userId || null,
-      sessionId,
-      level,
-      message,
-      metadata: metadata || null,
-    });
-  } catch (err) {
-    console.error("[Database] Failed to save debug log:", err);
-  }
-}
-
-export async function getDebugLogs(sessionId: string, userId?: number) {
-  const db = await getDb();
-  const conditions = [eq(debugLogs.sessionId, sessionId)];
-  if (userId) conditions.push(eq(debugLogs.userId, userId));
-  return await db
-    .select()
-    .from(debugLogs)
-    .where(and(...conditions))
-    .orderBy(debugLogs.createdAt)
-    .limit(1000);
-}
-
-// ============================================================================
 // PLATFORM SETTINGS
 // ============================================================================
 
@@ -854,91 +505,6 @@ export async function getEnabledPlatforms(userId: number): Promise<string[]> {
   if (!settings || !settings.enabledPlatforms)
     return ["indeed", "linkedin", "adzuna"];
   return settings.enabledPlatforms as string[];
-}
-
-// ============================================================================
-// WATCHED COMPANIES (Phase 14 — D-020)
-// ============================================================================
-
-export async function listWatchedCompanies(
-  userId: number
-): Promise<WatchedCompany[]> {
-  const db = await getDb();
-  return await db
-    .select()
-    .from(watchedCompanies)
-    .where(eq(watchedCompanies.userId, userId))
-    .orderBy(desc(watchedCompanies.addedAt));
-}
-
-export async function addWatchedCompany(
-  userId: number,
-  companySlug: string
-): Promise<{ added: boolean }> {
-  const db = await getDb();
-  const existing = await db
-    .select()
-    .from(watchedCompanies)
-    .where(
-      and(
-        eq(watchedCompanies.userId, userId),
-        eq(watchedCompanies.companySlug, companySlug)
-      )
-    )
-    .limit(1);
-  if (existing.length > 0) return { added: false };
-  await db.insert(watchedCompanies).values({ userId, companySlug });
-  return { added: true };
-}
-
-export async function removeWatchedCompany(
-  userId: number,
-  companySlug: string
-): Promise<{ removed: boolean }> {
-  const db = await getDb();
-  const existing = await db
-    .select()
-    .from(watchedCompanies)
-    .where(
-      and(
-        eq(watchedCompanies.userId, userId),
-        eq(watchedCompanies.companySlug, companySlug)
-      )
-    )
-    .limit(1);
-  if (existing.length === 0) return { removed: false };
-  await db
-    .delete(watchedCompanies)
-    .where(
-      and(
-        eq(watchedCompanies.userId, userId),
-        eq(watchedCompanies.companySlug, companySlug)
-      )
-    );
-  return { removed: true };
-}
-
-export async function clearWatchedCompanies(
-  userId: number
-): Promise<{ removed: number }> {
-  const db = await getDb();
-  const current = await db
-    .select()
-    .from(watchedCompanies)
-    .where(eq(watchedCompanies.userId, userId));
-  if (current.length === 0) return { removed: 0 };
-  await db.delete(watchedCompanies).where(eq(watchedCompanies.userId, userId));
-  return { removed: current.length };
-}
-
-export async function cleanupOldDebugLogs(): Promise<number> {
-  const db = await getDb();
-  const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  // sql.js exposes changes() on the underlying db; query before/after for affected count
-  const before = await db.select({ c: sql<number>`count(*)` }).from(debugLogs);
-  await db.delete(debugLogs).where(lt(debugLogs.createdAt, cutoffDate));
-  const after = await db.select({ c: sql<number>`count(*)` }).from(debugLogs);
-  return Number(before[0]?.c ?? 0) - Number(after[0]?.c ?? 0);
 }
 
 // ============================================================================

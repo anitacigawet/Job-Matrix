@@ -1,19 +1,9 @@
 import type { ChildProcess } from "node:child_process";
 
-export type ScrapeProcessOwner = {
-  userId: number;
-  scanId: number;
-};
+const active = new Set<ChildProcess>();
 
-type TrackedProcess = {
-  child: ChildProcess;
-  owner?: ScrapeProcessOwner;
-};
-
-const active = new Map<ChildProcess, TrackedProcess>();
-
-export function registerScrapeProcess(child: ChildProcess, owner?: ScrapeProcessOwner): void {
-  active.set(child, { child, owner });
+export function registerScrapeProcess(child: ChildProcess): void {
+  active.add(child);
   const cleanup = () => active.delete(child);
   child.once("close", cleanup);
   child.once("exit", cleanup);
@@ -50,25 +40,9 @@ export function terminateScrapeProcess(child: ChildProcess, graceMs = 3000): boo
   return signalled;
 }
 
-function terminateMatching(predicate: (entry: TrackedProcess) => boolean, graceMs = 3000): { count: number } {
-  const matches = Array.from(active.values()).filter(predicate);
-  for (const entry of matches) terminateScrapeProcess(entry.child, graceMs);
-  console.log(`[Scrape Registry] Sent SIGTERM to ${matches.length} scoped subprocess(es)`);
-  return { count: matches.length };
-}
-
-/** Local single-user compatibility path. Hosted callers must use the scoped form. */
 export function killAllScrapeProcesses(graceMs = 3000): { count: number } {
-  return terminateMatching(() => true, graceMs);
-}
-
-export function killScrapeProcessesForScan(
-  userId: number,
-  scanId: number,
-  graceMs = 3000,
-): { count: number } {
-  return terminateMatching(
-    entry => entry.owner?.userId === userId && entry.owner.scanId === scanId,
-    graceMs,
-  );
+  const children = Array.from(active);
+  for (const child of children) terminateScrapeProcess(child, graceMs);
+  console.log(`[Scrape Registry] Sent SIGTERM to ${children.length} subprocess(es)`);
+  return { count: children.length };
 }

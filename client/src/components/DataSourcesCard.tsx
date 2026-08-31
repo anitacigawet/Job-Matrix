@@ -2,7 +2,7 @@
  * Settings → Data Sources sub-tab.
  *
  * Tier-1 (real API) data sources live here — credentials saved to
- * `data/settings.json`, env vars override (see D-019). Each source declares
+ * `data/settings.json`; environment variables override it. Each source declares
  * its credential fields via `getDataSources`, so this component renders
  * dynamically per-source without hardcoding shapes.
  */

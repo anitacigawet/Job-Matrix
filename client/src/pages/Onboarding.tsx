@@ -177,7 +177,7 @@ export default function Onboarding() {
     // NOTE: Not clearing input anymore so user can click "Generate variations" immediately after
   };
 
-  // Quick Fill apply (D-021): stage new titles into the local
+  // Quick Fill: stage new titles into the local
   // generatedTitles array — onboarding persists at step 5, not now.
   const handleQuickFillApply = (newTitles: string[]) => {
     const existing = new Set(generatedTitles.map(t => t.title.toLowerCase().trim()));
@@ -530,7 +530,7 @@ export default function Onboarding() {
                     Some fields below may have been filled from your resume. Treat them as <span className="text-foreground font-medium">suggestions</span>—edit or replace anything before you finish onboarding.
                   </div>
                 )}
-                {/* Quiet "need ideas?" link — D-021 Phase 15. Opens the
+                {/* Quiet "need ideas?" link. Opens the
                     same WorkStyleQuickFillDialog the Preferences page
                     uses. Apply appends to the local generatedTitles
                     array; onboarding persists at step 5 like normal. */}

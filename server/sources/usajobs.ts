@@ -1,5 +1,5 @@
 /**
- * USAJobs — Tier 1 real API source. See DECISIONS.md D-019.
+ * USAJobs — Tier 1 real API source.
  *
  * US federal civilian job listings (SSA, USDA, NIH, DoD civilian, etc.).
  * Requires a free API key from https://developer.usajobs.gov/ — both the

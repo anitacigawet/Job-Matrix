@@ -1,5 +1,5 @@
 /**
- * The Muse — Tier 1 real API source. See DECISIONS.md D-019.
+ * The Muse — Tier 1 real API source.
  *
  * No-auth API; an optional API key raises the per-IP rate limit.
  * Docs: https://www.themuse.com/developers/api/v2

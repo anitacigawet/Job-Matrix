@@ -1,48 +1,41 @@
-# Security Policy
+# Security
 
-Job Matrix supports two deliberately separate environments:
+Job Matrix is a local application. It listens on `127.0.0.1`, stores its
+database and saved settings on the computer running it, and has no Job Matrix
+account or hosted application backend.
 
-- The hosted service uses invite-only accounts, Cloudflare Access identity,
-  tenant-scoped records, encrypted per-account provider keys, and centrally
-  enforced search allowances.
-- The source-available local build binds to `127.0.0.1` and keeps its data on
-  the person’s own computer.
+The public showroom is separate from the local application. It uses
+deterministic fictional data in the browser and does not search job sites,
+contact AI providers, upload files, or save personal information.
 
-The hosted service runs on dedicated infrastructure for ScootSolute projects.
-It does not share a server, tunnel, credentials, or data with the Personal
-Dashboard or any unrelated private system.
+## What leaves your computer
 
-Searches contact the selected job sites, and optional AI features contact the
-provider whose key the account holder supplies. Job Matrix does not provide a
-shared AI key to hosted accounts.
+Job Matrix makes outbound requests only for features you choose to use:
+
+- Searches contact the selected job sources.
+- JobSpy-backed searches use those sites' public web surfaces and can stop
+  working when a site changes.
+- Optional AI filtering sends the job listing and the relevant profile criteria
+  to the AI provider you select.
+- Optional response monitoring contacts Gmail or Slack only after you configure
+  that connection.
+
+Keys and connection tokens saved through Settings are written in plain text to
+`data/settings.json`; Job Matrix does not encrypt that local file. Keep the
+computer account and the `data/` directory private. Do not publish your `.env`
+file, settings file, database, resume, or exported application records.
 
 ## Reporting a vulnerability
 
-Please report security issues privately rather than opening a public issue.
+Please do not open a public issue for a security problem. Use
+[GitHub private vulnerability reporting](https://github.com/anitacigawet/Job-Matrix/security/advisories/new)
+and include the affected version, operating system, reproduction steps, and the
+impact you observed.
 
-- Preferred: use GitHub private vulnerability reporting from this repository’s
-  **Security** tab.
-- Alternatively, contact the maintainer through their GitHub profile.
+Useful reports include command injection, path traversal, unintended file
+access, disclosure of a saved API key, unsafe rendering of listing content, or
+an external origin being able to reach the local service unexpectedly.
 
-Please include the affected version, the environment (hosted or local), and
-clear reproduction steps. Reports are reviewed as soon as practical.
-
-## Useful reports
-
-Examples include:
-
-- Access to another account’s jobs, résumé details, application history, or
-  provider settings.
-- A way to bypass account approval, daily search allowances, the whole-site
-  search ceiling, or the owner’s stop control.
-- A route that lets one account consume unbounded shared compute, storage,
-  subprocess, or outbound network capacity.
-- Disclosure or unintended continued use of a saved API key.
-- Script execution from a job listing or API response, including a DOMPurify
-  bypass.
-- Path traversal, arbitrary file access, command injection, or an origin that
-  can be reached without its intended Cloudflare Access policy.
-
-For the local build, behavior that requires the person to already control their
-own machine is generally outside the threat model. The documented requests to
-job sites and user-selected AI providers are also expected behavior.
+Only the latest release is supported with security fixes. Behavior that
+requires someone to already control the local computer is generally outside the
+project's threat model.

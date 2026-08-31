@@ -196,7 +196,7 @@ export function TopNav() {
             className="badge badge-mono topnav-version"
             style={{ marginLeft: 4, fontSize: 10, padding: "1px 6px" }}
           >
-            v0.2.0
+            v1.0.0
           </span>
         </button>
         <div className="nav-links">

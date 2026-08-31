@@ -11,16 +11,13 @@ import {
   resolveProviderModel,
   writeSettings,
   readSettings,
-  saveUserSettings,
-  removeUserProviderKey,
   type AppSettings,
 } from "./_core/settings";
 import { PROVIDER_ORDER, ENV, type ProviderId } from "./_core/env";
-import { hostedWorkCoordinator } from "./services/hosted-work-coordinator";
 
 const providerSchema = z.enum(PROVIDER_ORDER as [ProviderId, ...ProviderId[]]);
 
-// Tier-1 data sources (Phase 13 — see DECISIONS.md D-019). Add an entry here
+// Tier-1 data sources. Add an entry here
 // when a new Tier-1 source ships and wire it up in data-source-tester.ts.
 // "credentialed" subset is enforced by Zod when saving — sources without
 // credentials (remotive, remoteok) don't need a save path.
@@ -61,7 +58,6 @@ interface DataSourceDescriptor {
 }
 
 function getDataSourcesForApi(): { sources: DataSourceDescriptor[] } {
-  if (ENV.hostedMode) return { sources: [] };
   const settings = readSettings();
   const ds = settings.dataSources ?? {};
 
@@ -245,9 +241,8 @@ export const settingsRouter = router({
         rateLimitRps: z.number().min(0).max(20).optional(),
       })
     )
-    .mutation(async ({ ctx, input }) => {
-      if (ENV.hostedMode) await saveUserSettings(ctx.user.id, input as Partial<AppSettings>);
-      else writeSettings(input as Partial<AppSettings>);
+    .mutation(({ input }) => {
+      writeSettings(input as Partial<AppSettings>);
       return getSettingsForApi();
     }),
 
@@ -257,9 +252,8 @@ export const settingsRouter = router({
    */
   clearProviderKey: protectedProcedure
     .input(z.object({ provider: providerSchema }))
-    .mutation(async ({ ctx, input }) => {
-      if (ENV.hostedMode) await removeUserProviderKey(ctx.user.id, input.provider);
-      else clearProviderKey(input.provider);
+    .mutation(({ input }) => {
+      clearProviderKey(input.provider);
       return getSettingsForApi();
     }),
 
@@ -351,7 +345,6 @@ export const settingsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      if (ENV.hostedMode) throw new Error("Automatic searches are disabled in the hosted edition. Run searches manually when you need them.");
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
@@ -407,14 +400,11 @@ export const settingsRouter = router({
         model: z.string().min(1).max(200),
       })
     )
-    .mutation(async ({ ctx, input }) => {
-      const operation = async () => {
-        const { testProviderConnection } = await import(
-          "./services/provider-tester"
-        );
-        return testProviderConnection(input.provider, input.apiKey, input.model);
-      };
-      return ctx.hosted ? hostedWorkCoordinator.runAi(ctx.user.id, operation) : operation();
+    .mutation(async ({ input }) => {
+      const { testProviderConnection } = await import(
+        "./services/provider-tester"
+      );
+      return testProviderConnection(input.provider, input.apiKey, input.model);
     }),
 
   /**
@@ -427,26 +417,23 @@ export const settingsRouter = router({
    */
   testSavedProvider: protectedProcedure
     .input(z.object({ provider: providerSchema }))
-    .mutation(async ({ ctx, input }) => {
-      const operation = async () => {
-        const key = resolveProviderKey(input.provider);
-        if (!key) {
-          return {
-            ok: false,
-            message: `No API key saved for ${input.provider}. Enter one in the form below and click Save first.`,
-            latencyMs: 0,
-          };
-        }
-        const model = resolveProviderModel(input.provider);
-        const { testProviderConnection } = await import(
-          "./services/provider-tester"
-        );
-        return testProviderConnection(input.provider, key, model);
-      };
-      return ctx.hosted ? hostedWorkCoordinator.runAi(ctx.user.id, operation) : operation();
+    .mutation(async ({ input }) => {
+      const key = resolveProviderKey(input.provider);
+      if (!key) {
+        return {
+          ok: false,
+          message: `No API key saved for ${input.provider}. Enter one in the form below and click Save first.`,
+          latencyMs: 0,
+        };
+      }
+      const model = resolveProviderModel(input.provider);
+      const { testProviderConnection } = await import(
+        "./services/provider-tester"
+      );
+      return testProviderConnection(input.provider, key, model);
     }),
 
-  // ── Tier-1 data sources (Phase 13 — D-019) ────────────────────────────
+  // ── Tier-1 data sources ───────────────────────────────────────────────
   /** Snapshot of every Tier-1 source: configured?, masked credentials, source (env|settings|none). */
   getDataSources: protectedProcedure.query(() => getDataSourcesForApi()),
 
@@ -462,10 +449,7 @@ export const settingsRouter = router({
         fields: z.record(z.string().max(80), z.string().trim().min(1).max(20_000)),
       })
     )
-    .mutation(async ({ ctx, input }) => {
-      if (ENV.hostedMode) {
-        throw new Error("Additional data-source credentials are not used by the hosted service.");
-      }
+    .mutation(({ input }) => {
       const current = readSettings();
       current.dataSources = current.dataSources ?? {};
       if (input.source === "adzuna") {
@@ -489,18 +473,14 @@ export const settingsRouter = router({
         if (input.fields.apiKey)
           current.dataSources.themuse.apiKey = input.fields.apiKey;
       }
-      if (ENV.hostedMode) await saveUserSettings(ctx.user.id, { dataSources: current.dataSources });
-      else writeSettings(current);
+      writeSettings(current);
       return getDataSourcesForApi();
     }),
 
   /** Remove saved credentials for one Tier-1 source. Env vars (if set) still take effect. */
   clearDataSource: protectedProcedure
     .input(z.object({ source: dataSourceSchema }))
-    .mutation(async ({ ctx, input }) => {
-      if (ENV.hostedMode) {
-        throw new Error("Additional data-source credentials are not used by the hosted service.");
-      }
+    .mutation(({ input }) => {
       const current = readSettings();
       current.dataSources = current.dataSources ?? {};
       if (input.source === "adzuna") {
@@ -515,16 +495,14 @@ export const settingsRouter = router({
       } else if (input.source === "themuse") {
         delete current.dataSources.themuse;
       }
-      if (ENV.hostedMode) await saveUserSettings(ctx.user.id, { dataSources: current.dataSources });
-      else writeSettings(current);
+      writeSettings(current);
       return getDataSourcesForApi();
     }),
 
   /**
    * Round-trip a single minimal request against the source to validate
    * credentials before save. Uses typed values when supplied; otherwise
-   * falls back to saved/env credentials (mirrors testSavedProvider for the
-   * LLM keys — D11.1a).
+   * falls back to saved/env credentials, mirroring the LLM provider test.
    */
   testDataSource: protectedProcedure
     .input(
@@ -534,9 +512,6 @@ export const settingsRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      if (ENV.hostedMode) {
-        throw new Error("Connection tests for additional sources are not available on the hosted service.");
-      }
       const { testDataSourceConnection } = await import(
         "./services/data-source-tester"
       );
@@ -627,9 +602,6 @@ export const settingsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      if (ctx.hosted && input.enabledPlatforms.some(platform => platform !== "indeed" && platform !== "linkedin")) {
-        throw new Error("The hosted service currently supports Indeed and LinkedIn searches only.");
-      }
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
@@ -656,10 +628,9 @@ export const settingsRouter = router({
    */
   getEnabledPlatforms: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
-    // Defaults updated in Phase 13 (D-019): drop Glassdoor (D-014 "not
-    // operable"), add Adzuna (Tier 1). Adzuna only runs if credentials
-    // are configured — Settings → Data Sources.
-    const DEFAULT_ENABLED = ENV.hostedMode ? ["indeed", "linkedin"] : ["indeed", "linkedin", "adzuna"];
+    // Adzuna only runs if credentials are configured in
+    // Settings → Data Sources.
+    const DEFAULT_ENABLED = ["indeed", "linkedin", "adzuna"];
     if (!db) return DEFAULT_ENABLED;
 
     const [settings] = await db
@@ -672,9 +643,7 @@ export const settingsRouter = router({
       return DEFAULT_ENABLED;
     }
 
-    return ENV.hostedMode
-      ? settings.enabledPlatforms.filter(platform => platform === "indeed" || platform === "linkedin")
-      : settings.enabledPlatforms;
+    return settings.enabledPlatforms;
   }),
 
   /**

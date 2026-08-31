@@ -19,90 +19,16 @@ const ts = (name: string) =>
 const tsNullable = (name: string) => integer(name, { mode: "timestamp" });
 
 // ── users ────────────────────────────────────────────────────────────
-// In single-user mode the app keeps one row with id = 1 ("Local User").
+// In single-user mode the app keeps one row with id = 1. This is local
+// application state, not an account.
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  openId: text("openId").notNull().unique(),
-  name: text("name"),
-  email: text("email"),
-  loginMethod: text("loginMethod"),
-  role: text("role").$type<"user" | "admin">().notNull().default("admin"),
   onboardingCompleted: integer("onboarding_completed").notNull().default(0),
   createdAt: ts("createdAt"),
   updatedAt: ts("updatedAt"),
-  lastSignedIn: ts("lastSignedIn"),
 });
 
 export type User = typeof users.$inferSelect;
-export type InsertUser = typeof users.$inferInsert;
-
-// Encrypted, tenant-specific provider and source credentials for hosted mode.
-export const userSecretSettings = sqliteTable("user_secret_settings", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" })
-    .unique(),
-  ciphertext: text("ciphertext").notNull(),
-  iv: text("iv").notNull(),
-  authTag: text("auth_tag").notNull(),
-  updatedAt: ts("updated_at"),
-});
-
-// ── job_preferences ──────────────────────────────────────────────────
-export const jobPreferences = sqliteTable("job_preferences", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" })
-    .unique(),
-  targetTitles: text("target_titles").notNull(),
-  location: text("location").notNull(),
-  radiusMiles: integer("radius_miles").notNull().default(50),
-  minSalary: integer("min_salary"),
-  maxSalary: integer("max_salary"),
-  jobType: text("job_type"),
-  remoteOnly: integer("remote_only").notNull().default(0),
-  monitoringEnabled: integer("monitoring_enabled").notNull().default(1),
-  scanIntervalMinutes: integer("scan_interval_minutes").notNull().default(30),
-  createdAt: ts("created_at"),
-  updatedAt: ts("updated_at"),
-});
-
-export type JobPreferences = typeof jobPreferences.$inferSelect;
-export type InsertJobPreferences = typeof jobPreferences.$inferInsert;
-
-// ── platform_credentials ─────────────────────────────────────────────
-export const platformCredentials = sqliteTable("platform_credentials", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  platform: text("platform")
-    .$type<
-      | "indeed"
-      | "glassdoor"
-      | "linkedin"
-      | "ziprecruiter"
-      | "google"
-      | "adzuna"
-      | "usajobs"
-      | "jooble"
-      | "themuse"
-      | "remotive"
-      | "remoteok"
-    >()
-    .notNull(),
-  cookiesJson: text("cookies_json"),
-  cookieString: text("cookie_string"),
-  localStorageJson: text("local_storage_json"),
-  userAgent: text("user_agent"),
-  createdAt: ts("created_at"),
-  updatedAt: ts("updated_at"),
-});
-
-export type PlatformCredentials = typeof platformCredentials.$inferSelect;
-export type InsertPlatformCredentials = typeof platformCredentials.$inferInsert;
 
 // ── tracked_jobs ─────────────────────────────────────────────────────
 export const trackedJobs = sqliteTable("tracked_jobs", {
@@ -155,14 +81,14 @@ export const trackedJobs = sqliteTable("tracked_jobs", {
     confidence?: number;
     analyzedAt?: string;
     fitScore?: number;
-    fitBreakdown?: {
+    fitDetails?: {
       skillsMatch: number;
       educationMatch: number;
       experienceMatch: number;
       locationMatch: number;
-      overallNotes: string;
+      notes: string;
     };
-    fitScoredAt?: string;
+    scoredAt?: string;
     duplicateOf?: number;
     duplicatePlatforms?: string[];
   }>(),
@@ -276,24 +202,6 @@ export const jobScanHistory = sqliteTable("job_scan_history", {
 export type JobScanHistory = typeof jobScanHistory.$inferSelect;
 export type InsertJobScanHistory = typeof jobScanHistory.$inferInsert;
 
-// ── debug_logs ───────────────────────────────────────────────────────
-export const debugLogs = sqliteTable("debug_logs", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").references(() => users.id, {
-    onDelete: "cascade",
-  }),
-  sessionId: text("session_id").notNull(),
-  level: text("level")
-    .$type<"info" | "success" | "warning" | "error">()
-    .notNull(),
-  message: text("message").notNull(),
-  metadata: text("metadata"),
-  createdAt: ts("created_at"),
-});
-
-export type DebugLog = typeof debugLogs.$inferSelect;
-export type InsertDebugLog = typeof debugLogs.$inferInsert;
-
 // ── user_job_titles ──────────────────────────────────────────────────
 export const userJobTitles = sqliteTable("user_job_titles", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -385,27 +293,6 @@ export const applicationProfiles = sqliteTable("application_profiles", {
 
 export type ApplicationProfile = typeof applicationProfiles.$inferSelect;
 export type InsertApplicationProfile = typeof applicationProfiles.$inferInsert;
-
-// ── invite_codes ─────────────────────────────────────────────────────
-// Kept for schema compatibility; not exposed in single-user mode.
-export const inviteCodes = sqliteTable("invite_codes", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  code: text("code").notNull().unique(),
-  createdBy: integer("created_by").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  usedBy: integer("used_by").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  usedAt: tsNullable("used_at"),
-  expiresAt: tsNullable("expires_at"),
-  maxUses: integer("max_uses").notNull().default(1),
-  currentUses: integer("current_uses").notNull().default(0),
-  createdAt: ts("created_at"),
-});
-
-export type InviteCode = typeof inviteCodes.$inferSelect;
-export type InsertInviteCode = typeof inviteCodes.$inferInsert;
 
 // ── user_settings ────────────────────────────────────────────────────
 export const userSettings = sqliteTable("user_settings", {
@@ -555,24 +442,6 @@ export const inboxMessages = sqliteTable("inbox_messages", {
 
 export type InboxMessage = typeof inboxMessages.$inferSelect;
 export type InsertInboxMessage = typeof inboxMessages.$inferInsert;
-
-// ── watched_companies ───────────────────────────────────────────────
-// Phase 14 — per-company ATS sources via the catalog at
-// companies-catalog.yaml. One row per (user, company-slug) the user has
-// added from the catalog. Scan path fans out to each one alongside the
-// existing per-platform dispatch. See DECISIONS.md D-020.
-export const watchedCompanies = sqliteTable("watched_companies", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  /** Catalog slug — must match an entry in companies-catalog.yaml at scan time. */
-  companySlug: text("company_slug").notNull(),
-  addedAt: ts("added_at"),
-});
-
-export type WatchedCompany = typeof watchedCompanies.$inferSelect;
-export type InsertWatchedCompany = typeof watchedCompanies.$inferInsert;
 
 // ── scraper_health ───────────────────────────────────────────────────
 // One row per supported scraper platform. Updated by every scrape attempt

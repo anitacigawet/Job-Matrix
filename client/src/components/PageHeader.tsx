@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 /**
  * Standard page header — back-arrow on the left, title + subtitle in the middle,
  * optional right-side action slot. Used by every "sub-page" in Job Matrix
- * (Applied, Analytics, Presets, Settings, Preferences, ConfigDebug).
+ * (Applied, Analytics, Presets, Settings, Preferences).
  *
  * The "hub" pages (Landing, Onboarding, the dashboard at /jobs, Platforms)
  * keep their own headers — they're entry points, not back-able sub-pages,

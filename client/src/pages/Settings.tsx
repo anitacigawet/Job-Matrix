@@ -129,8 +129,8 @@ export function SettingsPage() {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   const resetLocalDataMutation = trpc.personalized.nukeEverything.useMutation({
-    onSuccess: () => {
-      toast.success("Local Job Matrix data reset");
+    onSuccess: result => {
+      toast.success((result as { message?: string }).message ?? "Local Job Matrix data reset");
       setResetDialogOpen(false);
       window.location.assign("/");
     },
@@ -169,7 +169,7 @@ export function SettingsPage() {
   const testNotifMutation = trpc.settings.sendTestNotification.useMutation({
     onSuccess: data => {
       if (data.success)
-        toast.success("Test notification sent! Check your server console.");
+        toast.success((data as { message?: string }).message ?? "Test notification sent! Check your server console.");
       else toast.error("Notification dispatch failed.");
     },
     onError: e => toast.error(`Failed: ${getFriendlyApiErrorMessage(e)}`),
@@ -493,8 +493,8 @@ export function SettingsPage() {
                               autoComplete="off"
                               data-agent-input={`${p}-api-key`}
                             />
-                            {/* Test Connection lives right under the input it tests
-                              (D11.14, 2026-05-17). Previously buried in a button
+                            {/* Test Connection lives right under the input it tests.
+                              It was previously buried in a button
                               row at the bottom of the form, which made it look
                               like a peer of Save — audit Theme 3. */}
                             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -988,8 +988,9 @@ export function SettingsPage() {
                   <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
                   <p className="text-sm text-muted-foreground">
                     This permanently clears your profile, saved jobs, scan
-                    history, presets, and application records from the local
-                    SQLite database. Export anything you want to keep before
+                    history, presets, application records, uploaded résumé,
+                    local connection settings, and saved API keys from this
+                    computer. Export anything you want to keep before
                     continuing.
                   </p>
                 </div>

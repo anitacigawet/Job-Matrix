@@ -1,6 +1,7 @@
 import type { TRPCLink } from "@trpc/client";
 import { observable } from "@trpc/server/observable";
 import type { AppRouter } from "../../../server/routers";
+import { showroomPostingUrl } from "./showroomPostings";
 
 type Dict = Record<string, any>;
 
@@ -23,7 +24,7 @@ const baseJobs: Dict[] = [
     salaryInterval: "year",
     jobType: "fulltime",
     description: "Coordinate neighborhood programs, maintain partner calendars, and prepare plain-language progress reports for a fictional public-benefit organization.",
-    jobUrl: "https://example.com/fictional-job/community-programs-coordinator",
+    jobUrl: showroomPostingUrl(101),
     datePosted: "2026-08-23",
     status: "new",
     firstSeenAt: new Date("2026-08-23T15:00:00.000Z"),
@@ -39,8 +40,8 @@ const baseJobs: Dict[] = [
       confidence: 94,
       analyzedAt: "2026-08-24T16:00:00.000Z",
       fitScore: 92,
-      fitBreakdown: { skillsMatch: 94, educationMatch: 100, experienceMatch: 88, locationMatch: 86, overallNotes: "Strong coordination and reporting match." },
-      fitScoredAt: "2026-08-24T16:02:00.000Z",
+      fitDetails: { skillsMatch: 94, educationMatch: 100, experienceMatch: 88, locationMatch: 86, notes: "Strong coordination and reporting match." },
+      scoredAt: "2026-08-24T16:02:00.000Z",
     },
   },
   {
@@ -58,7 +59,7 @@ const baseJobs: Dict[] = [
     salaryInterval: "hour",
     jobType: "fulltime",
     description: "Support a fictional distributed operations team through scheduling, quality checks, documentation, and customer follow-up.",
-    jobUrl: "https://example.com/fictional-job/operations-support-specialist",
+    jobUrl: showroomPostingUrl(102),
     datePosted: "2026-08-22",
     status: "interested",
     firstSeenAt: new Date("2026-08-22T17:00:00.000Z"),
@@ -74,8 +75,8 @@ const baseJobs: Dict[] = [
       confidence: 97,
       analyzedAt: "2026-08-24T16:00:00.000Z",
       fitScore: 88,
-      fitBreakdown: { skillsMatch: 91, educationMatch: 100, experienceMatch: 84, locationMatch: 100, overallNotes: "Excellent location and transferable-skills match." },
-      fitScoredAt: "2026-08-24T16:02:00.000Z",
+      fitDetails: { skillsMatch: 91, educationMatch: 100, experienceMatch: 84, locationMatch: 100, notes: "Excellent location and transferable-skills match." },
+      scoredAt: "2026-08-24T16:02:00.000Z",
     },
   },
   {
@@ -93,7 +94,7 @@ const baseJobs: Dict[] = [
     salaryInterval: "year",
     jobType: "fulltime",
     description: "Review fictional civic records, normalize public datasets, and help publish accessible explainers for community users.",
-    jobUrl: "https://example.com/fictional-job/civic-data-assistant",
+    jobUrl: showroomPostingUrl(103),
     datePosted: "2026-08-21",
     status: "viewed",
     firstSeenAt: new Date("2026-08-21T19:00:00.000Z"),
@@ -109,8 +110,8 @@ const baseJobs: Dict[] = [
       confidence: 91,
       analyzedAt: "2026-08-24T16:00:00.000Z",
       fitScore: 84,
-      fitBreakdown: { skillsMatch: 90, educationMatch: 100, experienceMatch: 78, locationMatch: 82, overallNotes: "Strong data and public-information alignment." },
-      fitScoredAt: "2026-08-24T16:02:00.000Z",
+      fitDetails: { skillsMatch: 90, educationMatch: 100, experienceMatch: 78, locationMatch: 82, notes: "Strong data and public-information alignment." },
+      scoredAt: "2026-08-24T16:02:00.000Z",
     },
   },
   {
@@ -128,7 +129,7 @@ const baseJobs: Dict[] = [
     salaryInterval: "year",
     jobType: "contract",
     description: "Maintain process documentation and turn complex internal notes into concise user-facing guidance for a fictional cooperative.",
-    jobUrl: "https://example.com/fictional-job/documentation-coordinator",
+    jobUrl: showroomPostingUrl(104),
     datePosted: "2026-08-20",
     status: "new",
     firstSeenAt: new Date("2026-08-20T18:00:00.000Z"),
@@ -144,8 +145,8 @@ const baseJobs: Dict[] = [
       confidence: 90,
       analyzedAt: "2026-08-24T16:00:00.000Z",
       fitScore: 80,
-      fitBreakdown: { skillsMatch: 86, educationMatch: 100, experienceMatch: 76, locationMatch: 100, overallNotes: "Good writing and process-documentation match." },
-      fitScoredAt: "2026-08-24T16:02:00.000Z",
+      fitDetails: { skillsMatch: 86, educationMatch: 100, experienceMatch: 76, locationMatch: 100, notes: "Good writing and process-documentation match." },
+      scoredAt: "2026-08-24T16:02:00.000Z",
     },
   },
 ];
@@ -165,7 +166,7 @@ const initialApplied: Dict[] = [
     salaryInterval: "year",
     jobType: "fulltime",
     description: "A fictional role used to demonstrate the application pipeline.",
-    jobUrl: "https://example.com/fictional-job/member-support-coordinator",
+    jobUrl: showroomPostingUrl(201),
     applicationStatus: "interview",
     firstTrackedAt: new Date("2026-08-10T16:00:00.000Z"),
     appliedAt: new Date("2026-08-12T16:00:00.000Z"),
@@ -188,7 +189,7 @@ const initialApplied: Dict[] = [
     salaryInterval: "hour",
     jobType: "fulltime",
     description: "A fictional role used to demonstrate application tracking.",
-    jobUrl: "https://example.com/fictional-job/program-intake-assistant",
+    jobUrl: showroomPostingUrl(202),
     applicationStatus: "applied",
     firstTrackedAt: new Date("2026-08-15T16:00:00.000Z"),
     appliedAt: new Date("2026-08-18T16:00:00.000Z"),
@@ -252,6 +253,61 @@ const state: Dict = {
     createdAt,
     updatedAt,
   },
+  applicationProfile: {
+    id: 1,
+    userId: 1,
+    fullName: "Jordan Example",
+    email: "jordan@example.com",
+    phone: "(555) 010-2026",
+    addressLine1: "100 Fictional Avenue",
+    addressLine2: null,
+    city: "Phoenix",
+    state: "AZ",
+    postalCode: "85001",
+    availability: "Weekdays",
+    earliestStartDate: "2026-09-14",
+    workAuthorized: true,
+    sponsorshipRequired: false,
+    transportation: "Reliable transportation",
+    desiredPay: "$55,000 or equivalent hourly rate",
+    resumeFileName: "fictional-showroom-resume.pdf",
+    resumeUrl: null,
+    createdAt,
+    updatedAt,
+  },
+  gmail: {
+    clientConfigured: true,
+    connected: true,
+    email: "jordan@example.com",
+    connectedAt: createdAt,
+    clientIdMasked: "showroom-c…ient-id",
+  },
+  slack: { configured: false, masked: null },
+  monitoring: {
+    enabled: true,
+    notifyOnEmployerResponse: true,
+    lastCheckedAt: updatedAt,
+  },
+  llm: {
+    activeProvider: "gemini",
+    rateLimitRps: 2,
+    keys: {
+      gemini: "fictional-showroom-key",
+      openai: null,
+      deepseek: null,
+    },
+    models: {
+      gemini: "gemini-2.5-flash",
+      openai: "gpt-4.1-mini",
+      deepseek: "deepseek-chat",
+    },
+  },
+  dataSourceCredentials: {
+    adzuna: { appId: "fictional-showroom-id", appKey: "fictional-showroom-key" },
+    usajobs: {},
+    jooble: {},
+    themuse: {},
+  },
   presets: [
     { id: 501, userId: 1, name: "Phoenix + remote coordination", jobTitles: ["Community Programs Coordinator", "Operations Support Specialist"], location: "Phoenix, AZ", radiusMiles: 35, remotePreference: "any", platforms: ["indeed", "linkedin", "adzuna"], minSalary: 48000, jobType: "fulltime", isDefault: 1, lastUsedAt: new Date("2026-08-22T16:00:00.000Z"), createdAt, updatedAt },
     { id: 502, userId: 1, name: "Remote documentation", jobTitles: ["Documentation Coordinator"], location: "Phoenix, AZ", radiusMiles: 50, remotePreference: "remote_only", platforms: ["remotive", "remoteok"], minSalary: 45000, jobType: null, isDefault: 0, lastUsedAt: null, createdAt, updatedAt },
@@ -259,25 +315,68 @@ const state: Dict = {
   scanRevision: 0,
 };
 
+const initialState = structuredClone(state);
+
+const providerDefaults: Record<string, string> = {
+  gemini: "gemini-2.5-flash",
+  openai: "gpt-4.1-mini",
+  deepseek: "deepseek-chat",
+};
+
+function maskedValue(value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (value.includes("@")) {
+    const [local, domain] = value.split("@");
+    return `${local.slice(0, 1)}…@${domain}`;
+  }
+  return value.length <= 8 ? "show…om" : `${value.slice(0, 4)}…${value.slice(-2)}`;
+}
+
 const llm = () => ({
-  activeProvider: "gemini",
-  activeProviderSource: "settings",
-  rateLimitRps: 2,
-  providers: [
-    { id: "gemini", hasKey: true, keyMasked: "showroom…demo", model: "gemini-2.5-flash", defaultModel: "gemini-2.5-flash", keySource: "settings" },
-    { id: "openai", hasKey: false, keyMasked: null, model: "gpt-4.1-mini", defaultModel: "gpt-4.1-mini", keySource: "none" },
-    { id: "deepseek", hasKey: false, keyMasked: null, model: "deepseek-chat", defaultModel: "deepseek-chat", keySource: "none" },
-  ],
+  activeProvider: state.llm.activeProvider,
+  activeProviderSource: state.llm.keys[state.llm.activeProvider] ? "settings" : "none",
+  rateLimitRps: state.llm.rateLimitRps,
+  providers: Object.keys(providerDefaults).map(id => ({
+    id,
+    hasKey: !!state.llm.keys[id],
+    keyMasked: maskedValue(state.llm.keys[id]),
+    model: state.llm.models[id] ?? providerDefaults[id],
+    defaultModel: providerDefaults[id],
+    keySource: state.llm.keys[id] ? "settings" : "none",
+  })),
 });
 
-const dataSources = () => ({ sources: [
-  { id: "adzuna", label: "Adzuna", tier: 1, configured: true, source: "settings", signupUrl: "https://developer.adzuna.com/", noAuthRequired: false, fields: [{ name: "appId", label: "App ID", inputType: "text", placeholder: "c17cfb68", valueMasked: "show…om", required: true }, { name: "appKey", label: "App Key", inputType: "password", placeholder: "••••••••", valueMasked: "show…om", required: true }] },
-  { id: "usajobs", label: "USAJobs", tier: 1, configured: false, source: "none", signupUrl: "https://developer.usajobs.gov/APIRequest/", noAuthRequired: false, fields: [{ name: "email", label: "Email (User-Agent)", inputType: "email", placeholder: "you@example.com", valueMasked: null, required: true }, { name: "apiKey", label: "API Key", inputType: "password", placeholder: "••••••••", valueMasked: null, required: true }] },
-  { id: "jooble", label: "Jooble", tier: 1, configured: false, source: "none", signupUrl: "https://jooble.org/api/about", noAuthRequired: false, fields: [{ name: "apiKey", label: "API Key (partner)", inputType: "password", placeholder: "••••••••", valueMasked: null, required: true }] },
-  { id: "themuse", label: "The Muse", tier: 1, configured: true, source: "none", signupUrl: "https://www.themuse.com/developers/api/v2", noAuthRequired: true, fields: [{ name: "apiKey", label: "API Key (optional — raises rate limit)", inputType: "password", placeholder: "leave blank for no-auth tier", valueMasked: null, required: false }] },
-  { id: "remotive", label: "Remotive", tier: 1, configured: true, source: "none", signupUrl: "https://remotive.com/api-documentation/", noAuthRequired: true, fields: [] },
-  { id: "remoteok", label: "RemoteOK", tier: 1, configured: true, source: "none", signupUrl: "https://remoteok.com/api", noAuthRequired: true, fields: [] },
-] });
+const sourceDefinitions: Dict[] = [
+  { id: "adzuna", label: "Adzuna", tier: 1, signupUrl: "https://developer.adzuna.com/", noAuthRequired: false, fields: [{ name: "appId", label: "App ID", inputType: "text", placeholder: "c17cfb68", required: true }, { name: "appKey", label: "App Key", inputType: "password", placeholder: "••••••••", required: true }] },
+  { id: "usajobs", label: "USAJobs", tier: 1, signupUrl: "https://developer.usajobs.gov/APIRequest/", noAuthRequired: false, fields: [{ name: "email", label: "Email (User-Agent)", inputType: "email", placeholder: "you@example.com", required: true }, { name: "apiKey", label: "API Key", inputType: "password", placeholder: "••••••••", required: true }] },
+  { id: "jooble", label: "Jooble", tier: 1, signupUrl: "https://jooble.org/api/about", noAuthRequired: false, fields: [{ name: "apiKey", label: "API Key (partner)", inputType: "password", placeholder: "••••••••", required: true }] },
+  { id: "themuse", label: "The Muse", tier: 1, signupUrl: "https://www.themuse.com/developers/api/v2", noAuthRequired: true, fields: [{ name: "apiKey", label: "API Key (optional — raises rate limit)", inputType: "password", placeholder: "leave blank for no-auth tier", required: false }] },
+  { id: "remotive", label: "Remotive", tier: 1, signupUrl: "https://remotive.com/api-documentation/", noAuthRequired: true, fields: [] },
+  { id: "remoteok", label: "RemoteOK", tier: 1, signupUrl: "https://remoteok.com/api", noAuthRequired: true, fields: [] },
+];
+
+function sourceIsConfigured(source: Dict, credentials: Dict): boolean {
+  if (source.noAuthRequired) return true;
+  return source.fields.filter((field: Dict) => field.required).every((field: Dict) => !!credentials[field.name]);
+}
+
+const dataSources = () => ({
+  sources: sourceDefinitions.map(source => {
+    const credentials = state.dataSourceCredentials[source.id] ?? {};
+    const configured = sourceIsConfigured(source, credentials);
+    return {
+      ...source,
+      configured,
+      source: configured && !source.noAuthRequired ? "settings" : "none",
+      fields: source.fields.map((field: Dict) => ({ ...field, valueMasked: maskedValue(credentials[field.name]) })),
+    };
+  }),
+});
+
+function resetShowroomState() {
+  for (const key of Object.keys(state)) delete state[key];
+  Object.assign(state, structuredClone(initialState));
+}
 
 function eligibleJobs() {
   return state.jobs.filter((job: Dict) => job.status !== "applied" && job.status !== "rejected" && job.aiAnalysis?.eligible === true).map((job: Dict) => ({ ...job, aiAnalysis: { ...job.aiAnalysis } }));
@@ -329,8 +428,8 @@ function noteCounts() {
 
 async function execute(path: string, input: Dict | undefined): Promise<any> {
   switch (path) {
-    case "auth.me": return { id: 1, openId: "showroom-user", name: "Showroom Visitor", email: "visitor@example.com", loginMethod: "showroom", role: "admin", onboardingCompleted: 1, createdAt, updatedAt, lastSignedIn: updatedAt };
-    case "environment.status": return { environment: "showroom", label: "Deterministic showroom", activeProviderLabel: "Google Gemini (simulated)", isConfigured: true, errors: [] };
+    case "auth.me": return { id: 1, onboardingCompleted: 1, createdAt, updatedAt };
+    case "environment.status": return { environment: "showroom", label: "Deterministic showroom", activeProviderLabel: `${state.llm.activeProvider} (simulated)`, isConfigured: !!state.llm.keys[state.llm.activeProvider], errors: [] };
     case "onboarding.getProfile": return { ...state.profile };
     case "onboarding.getJobTitles": return state.titles.map((title: Dict) => ({ ...title }));
     case "onboarding.saveProfile": state.profile = { ...state.profile, ...input }; return { success: true };
@@ -352,34 +451,77 @@ async function execute(path: string, input: Dict | undefined): Promise<any> {
     case "personalized.exportEligibleJobsCSV": return ["Title,Company,Location,Status", ...eligibleJobs().map((job: Dict) => `\"${job.title}\",\"${job.company}\",\"${job.location}\",${job.status}`)].join("\n");
     case "personalized.runGlobalSearch": state.scanRevision += 1; return { success: true, message: "Loaded 12 deterministic fictional listings from the showroom fixture.", totalJobsFound: 12, newJobsFound: 4, failedSearchCount: 0 };
     case "personalized.runAIAnalysis": for (const job of state.jobs) if (!job.aiAnalysis) job.aiAnalysis = { eligible: true, reason: "Eligible in the showroom scenario.", confidence: 90, redFlags: [] }; return { success: true, message: `Analyzed ${state.jobs.length} fictional listings without an external AI call.`, eligibleJobs: eligibleJobs().length, filteredOut: 0 };
-    case "personalized.runFitScoring": for (const [index, job] of state.jobs.entries()) if (job.aiAnalysis) job.aiAnalysis = { ...job.aiAnalysis, fitScore: job.aiAnalysis.fitScore ?? 82 - index * 3, fitBreakdown: job.aiAnalysis.fitBreakdown ?? { skillsMatch: 84, educationMatch: 100, experienceMatch: 80, locationMatch: 92, overallNotes: "Deterministic showroom score." }, fitScoredAt: "2026-08-29T18:00:00.000Z" }; return { success: true, message: `Scored ${eligibleJobs().length} eligible fictional jobs.` };
+    case "personalized.runFitScoring": for (const [index, job] of state.jobs.entries()) if (job.aiAnalysis) job.aiAnalysis = { ...job.aiAnalysis, fitScore: job.aiAnalysis.fitScore ?? 82 - index * 3, fitDetails: job.aiAnalysis.fitDetails ?? { skillsMatch: 84, educationMatch: 100, experienceMatch: 80, locationMatch: 92, notes: "Deterministic showroom score." }, scoredAt: "2026-08-29T18:00:00.000Z" }; return { success: true, message: `Scored ${eligibleJobs().length} eligible fictional jobs.` };
     case "personalized.markJobAsApplied": { const job = state.jobs.find((item: Dict) => item.id === input?.jobId); if (!job) return { success: false, message: "Job not found" }; if (state.applied.some((item: Dict) => item.trackedJobId === job.id)) return { success: false, message: "Job already marked as applied" }; job.status = "applied"; state.applied.unshift(appliedFromTracked(job)); return { success: true, message: "Job marked as applied" }; }
     case "personalized.bulkMarkApplied": { let applied = 0; for (const id of input?.jobIds ?? []) { const job = state.jobs.find((item: Dict) => item.id === id); if (job && job.status !== "applied") { job.status = "applied"; state.applied.unshift(appliedFromTracked(job)); applied += 1; } } return { success: true, applied, skipped: (input?.jobIds?.length ?? 0) - applied }; }
     case "personalized.bulkRejectJobs": for (const id of input?.jobIds ?? []) { const job = state.jobs.find((item: Dict) => item.id === id); if (job) job.status = "rejected"; } return { success: true, rejected: input?.jobIds?.length ?? 0 };
     case "personalized.removeAppliedJob": state.applied = state.applied.filter((job: Dict) => job.id !== input?.jobId); return { success: true, message: "Job removed from applied list" };
     case "personalized.updateApplicationStatus": { const job = state.applied.find((item: Dict) => item.id === input?.jobId); if (job) { job.applicationStatus = input?.status; if (input?.notes !== undefined) job.notes = input.notes; } return { success: true }; }
     case "personalized.cleanDatabase": return { success: true, message: "Showroom data is protected; the original fictional fixture remains available." };
-    case "personalized.nukeEverything": return { success: true };
+    case "personalized.nukeEverything": resetShowroomState(); return { success: true, message: "Showroom restored to its fictional starting state; no local or external data was deleted." };
     case "personalized.pauseOperation": return { success: true, message: "Showroom operation paused" };
     case "personalized.resumeOperation": return { success: true, message: "Showroom operation resumed" };
     case "personalized.cancelOperation": return { success: true, message: "Showroom operation cancelled" };
 
-    case "automation.getSetup": return { profile: { id: 1, userId: 1, fullName: "Jordan Example", email: "jordan@example.com", phone: "(555) 010-2026", addressLine1: "100 Fictional Avenue", addressLine2: null, city: "Phoenix", state: "AZ", postalCode: "85001", availability: "Weekdays", earliestStartDate: "Two weeks after offer", workAuthorized: true, sponsorshipRequired: false, transportation: "Reliable transportation", desiredPay: "$55,000 or equivalent hourly rate", resumeFileName: "fictional-showroom-resume.pdf", resumeUrl: null, createdAt, updatedAt }, gmail: { configured: true, connected: true, email: "jordan@example.com", connectedAt: createdAt, clientIdMasked: "show…om" }, slack: { configured: false, masked: null }, monitoring: { enabled: true, notifyOnEmployerResponse: true, lastCheckedAt: updatedAt } };
-    case "automation.getApplicationPacket": { const job = state.jobs.find((item: Dict) => item.id === input?.jobId); if (!job) throw new Error("Job not found"); return { job: { ...job }, applicant: { fullName: "Jordan Example", email: "jordan@example.com", phone: "(555) 010-2026", addressLine1: "100 Fictional Avenue", addressLine2: null, city: "Phoenix", state: "AZ", postalCode: "85001", availability: "Weekdays", earliestStartDate: "Two weeks after offer", workAuthorized: true, sponsorshipRequired: false, transportation: "Reliable transportation", desiredPay: "$55,000", resumeFileName: "fictional-showroom-resume.pdf", resumeUrl: null }, background: { educationLevel: state.profile.educationLevel, yearsExperience: state.profile.yearsExperience, skills: state.profile.skillsRaw, resumeText: state.profile.resumeText }, instructions: ["Open the fictional posting and begin its application form.", "Use only the supplied fictional answers.", "Never invent sensitive information.", "Pause on final review; the user approves every submission.", "Return to Job Matrix and record the application."] }; }
+    case "automation.getSetup": return { profile: { ...state.applicationProfile }, gmail: { ...state.gmail }, slack: { ...state.slack }, monitoring: { ...state.monitoring } };
+    case "automation.getApplicationPacket": { const job = state.jobs.find((item: Dict) => item.id === input?.jobId); if (!job) throw new Error("Job not found"); return { job: { ...job }, applicant: { ...state.applicationProfile }, background: { educationLevel: state.profile.educationLevel, yearsExperience: state.profile.yearsExperience, skills: state.profile.skillsRaw, resumeText: state.profile.resumeText }, instructions: ["Open the fictional posting and begin its application form.", "Use only the supplied fictional answers.", "Never invent sensitive information.", "Pause on final review; the user approves every submission.", "Return to Job Matrix and record the application."] }; }
     case "automation.listInbox": return state.inbox.map((message: Dict) => ({ ...message, application: message.appliedJobId ? state.applied.find((job: Dict) => job.id === message.appliedJobId) ?? null : null }));
     case "automation.markResponseReviewed": { const message = state.inbox.find((item: Dict) => item.id === input?.messageId); if (message) { message.needsReview = false; message.reviewedAt = updatedAt; } return { success: true }; }
     case "automation.linkResponse": { const message = state.inbox.find((item: Dict) => item.id === input?.messageId); if (message) { message.appliedJobId = input?.appliedJobId; message.needsReview = false; } return { success: true }; }
     case "automation.setQueued": { const job = state.jobs.find((item: Dict) => item.id === input?.jobId); if (job) job.status = input?.queued ? "interested" : "viewed"; return { success: true }; }
     case "automation.bulkQueue": { let queued = 0; for (const id of input?.jobIds ?? []) { const job = state.jobs.find((item: Dict) => item.id === id); if (job && !["applied", "rejected"].includes(job.status)) { job.status = "interested"; queued += 1; } } return { success: true, queued }; }
-    case "automation.saveApplicationProfile": return { success: true };
-    case "automation.uploadResume": return { success: true, fileName: input?.fileName ?? "fictional-resume.pdf", url: null };
-    case "automation.saveGmailClient": return { configured: true, connected: true, email: "jordan@example.com", connectedAt: updatedAt, clientIdMasked: "show…om" };
-    case "automation.createGmailAuthUrl": return { url: "https://example.com/showroom-gmail-auth" };
-    case "automation.disconnectGmail": return { success: true };
-    case "automation.saveSlackWebhook": return { configured: true, masked: "https://hooks.slack.com/••••/showroom" };
-    case "automation.testSlack": return { success: true };
-    case "automation.updateMonitoring": return { success: true };
-    case "automation.checkInboxNow": return { success: true, message: "Showroom inbox checked; one fictional response is available.", found: 1 };
+    case "automation.saveApplicationProfile": {
+      const values = Object.fromEntries(Object.entries(input ?? {}).map(([key, value]) => [key, value === "" ? null : value]));
+      Object.assign(state.applicationProfile, values, { updatedAt });
+      return { success: true };
+    }
+    case "automation.uploadResume": {
+      const fileName = String(input?.fileName ?? "fictional-resume.pdf").split(/[\\/]/).pop() || "fictional-resume.pdf";
+      Object.assign(state.applicationProfile, { resumeFileName: fileName, resumeUrl: null, updatedAt });
+      return { success: true, fileName, url: null };
+    }
+    case "automation.saveGmailClient": {
+      state.gmail = {
+        clientConfigured: true,
+        connected: false,
+        email: null,
+        connectedAt: null,
+        clientIdMasked: maskedValue(input?.clientId),
+      };
+      Object.assign(state.monitoring, { enabled: false, lastCheckedAt: null });
+      state.settings.inboxMonitoringEnabled = 0;
+      return { ...state.gmail };
+    }
+    case "automation.createGmailAuthUrl": {
+      if (!state.gmail.clientConfigured) throw new Error("Save a fictional OAuth client before connecting Gmail.");
+      Object.assign(state.gmail, { connected: true, email: "jordan@example.com", connectedAt: updatedAt });
+      const origin = typeof window === "undefined" ? new URL(String(input?.origin)).origin : window.location.origin;
+      return { url: `${origin}/showroom/gmail-connected` };
+    }
+    case "automation.disconnectGmail": {
+      Object.assign(state.gmail, { connected: false, email: null, connectedAt: null });
+      Object.assign(state.monitoring, { enabled: false, lastCheckedAt: null });
+      state.settings.inboxMonitoringEnabled = 0;
+      return { success: true };
+    }
+    case "automation.saveSlackWebhook": {
+      const webhookUrl = String(input?.webhookUrl ?? "").trim();
+      state.slack = webhookUrl
+        ? { configured: true, masked: "https://hooks.slack.com/••••/showroom" }
+        : { configured: false, masked: null };
+      return { ...state.slack };
+    }
+    case "automation.testSlack": return state.slack.configured
+      ? { success: true, message: "Showroom Slack alert simulated; no external service was contacted." }
+      : { success: false, message: "Save a fictional Slack webhook first; no external service was contacted." };
+    case "automation.updateMonitoring": {
+      if (input?.enabled && !state.gmail.connected) throw new Error("Connect Gmail before turning on inbox monitoring.");
+      Object.assign(state.monitoring, { enabled: !!input?.enabled, notifyOnEmployerResponse: !!input?.notifyOnEmployerResponse });
+      state.settings.inboxMonitoringEnabled = input?.enabled ? 1 : 0;
+      state.settings.notifyOnEmployerResponse = input?.notifyOnEmployerResponse ? 1 : 0;
+      return { success: true };
+    }
+    case "automation.checkInboxNow": state.monitoring.lastCheckedAt = updatedAt; state.settings.inboxLastCheckedAt = updatedAt; return { success: true, message: "Showroom inbox check simulated; one fictional response is available and no external service was contacted.", found: 1 };
 
     case "notes.getJobNotes": return state.notes.filter((note: Dict) => note.jobId === input?.jobId).map((note: Dict) => ({ ...note }));
     case "notes.getNoteCounts": return noteCounts();
@@ -399,22 +541,49 @@ async function execute(path: string, input: Dict | undefined): Promise<any> {
     case "settings.updatePlatforms": state.enabledPlatforms = [...(input?.enabledPlatforms ?? state.enabledPlatforms)]; return { success: true, platforms: [...state.enabledPlatforms] };
     case "settings.updateNotifications": Object.assign(state.settings, input); return { success: true };
     case "settings.updateAutoScan": Object.assign(state.settings, input); return { success: true };
-    case "settings.saveLlm": return llm();
-    case "settings.clearProviderKey": return llm();
-    case "settings.testProvider":
-    case "settings.testSavedProvider": return { ok: true, message: "Showroom connection simulated successfully; no external provider was contacted.", latencyMs: 18 };
-    case "settings.saveDataSource": return dataSources();
-    case "settings.clearDataSource": return dataSources();
-    case "settings.testDataSource": return { ok: true, message: "Showroom source check simulated successfully; no external source was contacted.", latencyMs: 12 };
-    case "settings.sendTestNotification": return { success: true };
+    case "settings.saveLlm": {
+      if (input?.activeProvider) state.llm.activeProvider = input.activeProvider;
+      if (input?.rateLimitRps !== undefined) state.llm.rateLimitRps = input.rateLimitRps;
+      for (const provider of Object.keys(providerDefaults)) {
+        const key = input?.[`${provider}Key`];
+        const model = input?.[`${provider}Model`];
+        if (key) state.llm.keys[provider] = key;
+        if (model) state.llm.models[provider] = model;
+      }
+      return llm();
+    }
+    case "settings.clearProviderKey": {
+      const provider = input?.provider;
+      if (provider && provider in state.llm.keys) state.llm.keys[provider] = null;
+      return llm();
+    }
+    case "settings.testProvider": return input?.apiKey && input?.model
+      ? { ok: true, message: "Showroom provider check simulated; no external AI provider was contacted.", latencyMs: 18 }
+      : { ok: false, message: "Enter a fictional API key and model; no external AI provider was contacted.", latencyMs: 0 };
+    case "settings.testSavedProvider": {
+      const provider = String(input?.provider ?? "");
+      return state.llm.keys[provider]
+        ? { ok: true, message: "Showroom saved-provider check simulated; no external AI provider was contacted.", latencyMs: 18 }
+        : { ok: false, message: `No fictional API key is saved for ${provider}; no external AI provider was contacted.`, latencyMs: 0 };
+    }
+    case "settings.saveDataSource": {
+      const source = String(input?.source ?? "");
+      state.dataSourceCredentials[source] = { ...(state.dataSourceCredentials[source] ?? {}), ...(input?.fields ?? {}) };
+      return dataSources();
+    }
+    case "settings.clearDataSource": state.dataSourceCredentials[String(input?.source ?? "")] = {}; return dataSources();
+    case "settings.testDataSource": {
+      const source = sourceDefinitions.find(item => item.id === input?.source);
+      if (!source) return { ok: false, message: "Unknown fictional data source; no external source was contacted.", latencyMs: 0 };
+      const credentials = { ...(state.dataSourceCredentials[source.id] ?? {}), ...(input?.fields ?? {}) };
+      return sourceIsConfigured(source, credentials)
+        ? { ok: true, message: "Showroom source check simulated; no external source was contacted.", latencyMs: 12 }
+        : { ok: false, message: "Enter all required fictional credentials; no external source was contacted.", latencyMs: 0 };
+    }
+    case "settings.sendTestNotification": return { success: true, message: "Showroom notification simulated; no external service was contacted." };
 
     case "indeed.getScanHistory": return [await execute("personalized.getLastGlobalSearch", undefined), await execute("personalized.getLastAIAnalysis", undefined)];
     case "scrapers.health": return sourceHealth();
-    case "system.getRecentLogs": return [
-      { id: 1, source: "server", level: "info", message: "[Showroom] Deterministic fictional data loaded in the browser.", timestamp: "2026-08-29T18:00:00.000Z" },
-      { id: 2, source: "server", level: "success", message: "[Showroom] No API, scraper, AI provider, upload, or account request was made.", timestamp: "2026-08-29T18:00:01.000Z" },
-    ];
-    case "system.clearLogs": return { success: true };
     default: throw new Error(`Showroom fixture does not implement ${path}`);
   }
 }

@@ -84,37 +84,33 @@ any unnecessary data.
 
 ## Running it locally
 
-### What you will need
+### Windows portable release
 
-- [Node.js](https://nodejs.org/) 22 or newer.
-- [pnpm](https://pnpm.io/installation) 10 or newer.
-- [Python](https://www.python.org/downloads/) 3.9 or newer if you want to use
-  JobSpy-backed sources. The app creates and repairs its Python environment on
-  the first scraper run.
-- Credentials only for the job sources or optional AI provider you choose.
+1. Open the [latest Job Matrix release](https://github.com/anitacigawet/Job-Matrix/releases/latest).
+2. Download the Windows x64 portable ZIP for most Intel or AMD computers, or
+   the Windows ARM64 portable ZIP for an ARM-based computer.
+3. Extract the entire ZIP to a folder you can keep.
+4. Double-click **Start Job Matrix.cmd**.
 
-### Run it locally
+The launcher includes Node.js, chooses an available local port, waits for Job
+Matrix to start, and opens it in your browser. You do not need Git, pnpm, npm,
+or a development setup. Keep the server window open while using the program.
 
-```bash
-git clone https://github.com/anitacigawet/Job-Matrix.git
-cd Job-Matrix
-pnpm setup
-pnpm dev
-```
+### macOS, Linux, or an existing Node installation
 
-Open <http://127.0.0.1:3000>. First-run setup creates a local SQLite database
-and asks which roles and locations matter to you. There is no login.
+Download the runtime ZIP from the latest release and extract it. It requires
+Node.js 22.22.0 or newer. Run `sh start.sh` on macOS or Linux, or use
+**Start Job Matrix.cmd** on Windows.
 
-For a production build:
+Job Matrix stores its database and settings in the extracted folder under
+`data/`, so moving or backing up that folder keeps the local workspace together.
+There is no login. API keys are optional and are needed only for the sources or
+AI provider you choose.
 
-```bash
-pnpm build
-pnpm start
-```
-
-Job Matrix supports Google Gemini, OpenAI, and DeepSeek directly. AI is
-optional; search, organization, and application tracking still work without an
-AI provider.
+Python 3.10 or newer is needed only for JobSpy-backed sources such as Indeed and
+LinkedIn. The first JobSpy search creates its own environment under `data/` and
+installs the pinned scraper dependency. The rest of Job Matrix does not need
+Python.
 
 ---
 
@@ -122,24 +118,39 @@ AI provider.
 
 ### How the repository is organized
 
-- **`client/`** — the React interface, including the deterministic showroom
-  adapter.
-- **`server/`** — the Express/tRPC service, source adapters, filtering, scoring,
-  application workflow, and optional integrations.
-- **`shared/`** — types and platform definitions shared by the client and
-  server.
-- **`drizzle/`** — the SQLite schema and migrations.
-- **`docs/CONCIERGE_PROMPT.md`** — the tested prompt for an in-browser AI agent.
-- **`docs/internal/`** — the roadmap, task ledger, architectural decisions, and
-  semantic-hook reference.
+- **`client/`** — the React interface and deterministic showroom adapter.
+- **`server/`** — the local Express/tRPC service, source adapters, filtering,
+  scoring, application workflow, and optional integrations.
+- **`shared/`** — definitions shared by the client and server.
+- **`drizzle/`** — the SQLite schema and runtime migrations.
+- **`scripts/` and `packaging/`** — repeatable build, launch, screenshot, and
+  release-assembly tools.
+- **`docs/CONCIERGE_PROMPT.md`** — a prompt for operating the interface with an
+  in-browser AI agent.
 
-### Contributing and maintenance
+### Build from source
 
-Open an issue before sending a code pull request so the proposed change can be
-checked against the current architecture. Run `pnpm check` and `pnpm test`
-before submitting. Bug reports are welcome; security reports should follow
-[`SECURITY.md`](SECURITY.md). The full contribution process is in
-[`CONTRIBUTING.md`](CONTRIBUTING.md).
+Install Node.js 22.22.0 or newer and pnpm 10, then run:
+
+```bash
+git clone https://github.com/anitacigawet/Job-Matrix.git
+cd Job-Matrix
+pnpm install --frozen-lockfile
+pnpm check
+pnpm test
+pnpm build
+pnpm start
+```
+
+Open the local address printed in the terminal. Development mode is available
+with `pnpm dev`; release packages are assembled with `pnpm release:assemble`.
+
+### Security
+
+The local service binds to `127.0.0.1`. Read [`SECURITY.md`](SECURITY.md) before
+publishing a configuration file, database, resume, or application export. Send
+security reports through GitHub's private vulnerability reporting instead of a
+public issue.
 
 ### Credits
 
