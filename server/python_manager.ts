@@ -22,12 +22,6 @@ function cleanPythonEnv(): Record<string, string> {
     if (value === undefined || key === "PYTHONPATH" || key === "PYTHONHOME") continue;
     env[key] = value;
   }
-  if (env.PATH) {
-    env.PATH = env.PATH
-      .split(path.delimiter)
-      .filter(entry => !entry.includes(".local/share/uv/python"))
-      .join(path.delimiter);
-  }
   return env;
 }
 

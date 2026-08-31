@@ -110,6 +110,7 @@ await gmailCard.getByText("Not connected", { exact: true }).waitFor();
 const gmailPagePromise = context.waitForEvent("page");
 await gmailCard.getByRole("button", { name: "Connect Gmail" }).click();
 const gmailPage = await gmailPagePromise;
+await gmailPage.waitForURL(url => url.origin === expectedOrigin && url.pathname === "/showroom/gmail-connected");
 await gmailPage.waitForLoadState("networkidle");
 assert.equal(new URL(gmailPage.url()).origin, expectedOrigin, "Gmail simulation left the showroom origin");
 await gmailPage.locator('[data-agent-status="showroom-gmail-connected"]').waitFor();
