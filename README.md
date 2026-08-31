@@ -60,9 +60,7 @@ _The setup screen explains the workflow before you enter any information._
 6. **Long-term tracking.** Saves jobs to an application queue where you are able
    to track interviews, offers, keep a timeline, or export your records.
 
----
-
-## Works with in-browser AI agents
+### Works with in-browser AI agents
 
 Job Matrix labels its buttons, inputs, progress states, and empty states so a
 browser agent can operate the same interface you use. There is no separate
@@ -75,9 +73,7 @@ button so you can review and approve the application.
 _Saved answers stay visible, missing answers remain questions, and final
 submission stays under your control._
 
----
-
-## Try it yourself
+### Try it yourself
 
 The [public Job Matrix showroom](https://jobmatrix.scootsolute.org/) uses the
 project's actual interface with fictional data for the backend, allowing you to
