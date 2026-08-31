@@ -41,32 +41,24 @@ _The setup screen explains the workflow before you enter any information._
 
 ## What it actually does
 
-1. **Add preset filters that actually stick.** Job Matrix saves your target
-   roles, locations, expected salary/pay, education, and experience. Presets
-   keep repeatable combinations of roles, location, radius, work arrangement,
-   pay, and sources. The app does not erase them between searches or make you
-   enter them again for each platform.
-2. **Utilize multiple sources.** Job Matrix can search Adzuna, USAJobs, Jooble,
-   The Muse, Remotive, RemoteOK, Indeed, and LinkedIn. It also keeps toggleable
-   JobSpy connectors for Glassdoor, ZipRecruiter, and Google Jobs so they can be
-   re-tested after upstream fixes, but those three are not currently reliable.
-3. **Reduce stale and duplicate listings.** Job Matrix applies posting-age
-   limits where a source supports them, but it does not claim to identify ghost
-   jobs. Exact cross-source duplicates are dropped during collection. Other
-   likely duplicates are grouped and hidden by default, not deleted from the
-   local database, so the same opening does not become unnecessary visual
-   harassment. You can still reveal every listing when you want to compare
-   sources.
-4. **Remove obvious mismatches.** Optional filtering checks listings against
-   your location and work arrangement, education, experience, and expected
-   salary/pay. Filtered jobs remain reviewable instead of disappearing without
-   an explanation.
-5. **Rank job searches based on personalization factors.** When AI scoring is
-   enabled, Job Matrix generates a fit score from the information you provide.
-   It is an estimate and starting point for judging your potential readiness for
-   each job, not a decision made for you.
-6. **Long-term tracking.** Save jobs to an application queue,
-   track interviews and offers, keep a timeline, and export your records.
+1. **Add preset filters that actually stick.** Target roles, locations,
+   expected salary/pay, education, and experience. The parameters you pick are
+   actually saved and not randomly erased after each search or on different
+   platforms.
+2. **Utilizes multifaceted sources.** Utilizes sources from Indeed, LinkedIn,
+   Adzuna, USAJobs, Jooble, The Muse, Remotive, and RemoteOK.
+3. **Attempts to remove duplicate listings.** The same job opening appearing on
+   multiple sources is grouped instead of becoming more unnecessary visual
+   harassment.
+4. **Rules remove clear mismatches.** Optional AI filtering can evaluate the
+   listing against your saved profile and flag scams, MLM language, education
+   conflicts, experience conflicts, location restrictions, and pay problems.
+5. **Ranks job searches based on personalization factors.** Job Matrix
+   generates a fit score depending on the data you put into it to give you a
+   good estimate/starting point for each job in terms of your potential
+   readiness for said job.
+6. **Long-term tracking.** Saves jobs to an application queue where you are able
+   to track interviews, offers, keep a timeline, or export your records.
 
 ---
 
@@ -88,13 +80,13 @@ submission stays under your control._
 ## Try it yourself
 
 The [public Job Matrix showroom](https://jobmatrix.scootsolute.org/) uses the
-real interface and workflows with deterministic fictional data. You can click
-through the search, filtering, scoring, application, preference, source,
-analytics, and settings flows. It resets when the page reloads and does not
-scrape job sites, call an AI provider, send email, upload files, or submit an
-application.
+project's actual interface with fictional data for the backend, allowing you to
+explore its search, filtering, scoring, and other functionality without entering
+any unnecessary data.
 
-To use Job Matrix with your own searches and records, run it locally.
+---
+
+## Running it locally
 
 ### What you will need
 
@@ -127,22 +119,6 @@ pnpm start
 Job Matrix supports Google Gemini, OpenAI, and DeepSeek directly. AI is
 optional; search, organization, and application tracking still work without an
 AI provider.
-
----
-
-## Data and privacy
-
-The public showroom uses fictional information stored only in the current
-browser session. Its network policy blocks outgoing connections, and reloading
-the page resets it.
-
-The local application stores your profile, listings, and application record in
-`data/app.db` on your computer and listens only on `127.0.0.1`. When you run a
-search, your search terms and locations go to the sources you enabled. When you
-request AI filtering or scoring, the relevant listing and profile information
-goes directly to the provider you selected. Optional Gmail and Slack features
-connect only when you configure and enable them. Preparing an application
-packet does not submit it to an employer.
 
 ---
 
