@@ -1,0 +1,9 @@
+# Job Matrix — Python dependencies
+#
+# Only used by the optional job scraper subprocess (server/job_scraper.py).
+# The rest of the app runs on Node and does not need a Python environment.
+#
+# Job Matrix installs this pinned dependency automatically into
+# data/python/jobspy-venv the first time a JobSpy-backed source is used.
+
+python-jobspy==1.1.82
