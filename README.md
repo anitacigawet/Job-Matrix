@@ -121,6 +121,8 @@ Python.
 
 ### How the repository is organized
 
+- **[`START_HERE.md`](START_HERE.md)** — the AI and maintainer handoff entry
+  point, including current boundaries, read order, and verification commands.
 - **`client/`** — the React interface and deterministic showroom adapter.
 - **`server/`** — the local Express/tRPC service, source adapters, filtering,
   scoring, application workflow, and optional integrations.
