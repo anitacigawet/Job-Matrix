@@ -62,6 +62,7 @@ import { toast } from "sonner";
 import { TerminalBox, type TerminalBoxProps } from "@/components/TerminalBox";
 import { rolePreview, sanitizeJobDescription } from "@/lib/sanitize";
 import { getFriendlyApiErrorMessage } from "@/lib/api-errors";
+import { getJobFitScore } from "@/lib/job-fit-score";
 
 import { WorkflowRail } from "@/components/WorkflowRail";
 import { StatusStrip } from "@/components/StatusStrip";
@@ -108,21 +109,6 @@ function formatRelativeTime(dateString: string): string {
   }
 }
 
-function getJobFitScore(job: any): number {
-  const fitScore = job?.aiAnalysis?.fitScore;
-  if (typeof fitScore === "number") {
-    return fitScore;
-  }
-  if (
-    fitScore &&
-    typeof fitScore === "object" &&
-    typeof fitScore.overall === "number"
-  ) {
-    return fitScore.overall;
-  }
-  return 0;
-}
-
 export function TrackedJobsPersonalized() {
   const utils = trpc.useUtils();
   const [progressDetails, setProgressDetails] = useState<{
@@ -144,10 +130,6 @@ export function TrackedJobsPersonalized() {
 
   // Terminal boxes for visual workflow
   const [terminalBoxes, setTerminalBoxes] = useState<TerminalBoxProps[]>([]);
-  const [workflowState, setWorkflowState] = useState<{
-    globalSearchCompleted: boolean;
-    aiAnalysisEnabled: boolean;
-  }>({ globalSearchCompleted: false, aiAnalysisEnabled: false });
   const [isNukeDialogOpen, setIsNukeDialogOpen] = useState(false);
   // Default collapsed because most users don't need the filtered-out list
   // hanging open on every dashboard load. Power users can expand. State is
@@ -174,7 +156,7 @@ export function TrackedJobsPersonalized() {
     });
 
   const { data: jobs = [], isLoading: jobsLoading } =
-    trpc.personalized.getEligibleJobs.useQuery({});
+    trpc.personalized.getBoardJobs.useQuery();
 
   // Fetch last scan timestamps
   const { data: lastGlobalSearch } =
@@ -217,22 +199,10 @@ export function TrackedJobsPersonalized() {
   const [queuedOnly, setQueuedOnly] = useState(false);
   const [assistantJobId, setAssistantJobId] = useState<number | null>(null);
 
-  // Initialize workflow state based on existing data
-  useEffect(() => {
-    // Only enable AI Job Filtering if there's both a completed search AND actual job data
-    if (lastGlobalSearch?.completedAt && totalJobCount > 0) {
-      setWorkflowState({
-        globalSearchCompleted: true,
-        aiAnalysisEnabled: true,
-      });
-    } else {
-      // Reset to initial state if no data
-      setWorkflowState({
-        globalSearchCompleted: false,
-        aiAnalysisEnabled: false,
-      });
-    }
-  }, [lastGlobalSearch, totalJobCount]);
+  // Derive availability from saved rows; a refreshed board can arrive before
+  // the count query after the first scan, and imported rows can also be filtered.
+  const hasJobsToFilter = totalJobCount > 0 || jobs.length > 0 ||
+    (pendingCounts?.unanalyzedJobs ?? 0) > 0;
 
   // Global search mutation
   const globalSearch = trpc.personalized.runGlobalSearch.useMutation({
@@ -274,19 +244,15 @@ export function TrackedJobsPersonalized() {
         },
       ]);
 
-      // Enable AI Job Filtering and mark workflow as completed
-      setWorkflowState({
-        globalSearchCompleted: true,
-        aiAnalysisEnabled: true,
-      });
-
       // Clear terminal boxes after 2 seconds
       setTimeout(() => setTerminalBoxes([]), 2000);
 
       utils.personalized.getLastGlobalSearch.invalidate();
+      utils.personalized.getTotalJobCount.invalidate();
       utils.personalized.getPendingJobCounts.invalidate();
       utils.personalized.getSystemStats.invalidate();
       utils.personalized.getEligibleJobs.invalidate();
+      utils.personalized.getBoardJobs.invalidate();
     },
     onError: error => {
       toast.error("Global Search Failed", {
@@ -356,6 +322,7 @@ export function TrackedJobsPersonalized() {
       utils.personalized.getPendingJobCounts.invalidate();
       utils.personalized.getSystemStats.invalidate();
       utils.personalized.getEligibleJobs.invalidate();
+      utils.personalized.getBoardJobs.invalidate();
     },
     onError: error => {
       // Extract stage information from error message if present
@@ -380,6 +347,7 @@ export function TrackedJobsPersonalized() {
       });
       // Invalidate all queries that depend on job data
       utils.personalized.getEligibleJobs.invalidate();
+      utils.personalized.getBoardJobs.invalidate();
       utils.personalized.getPendingJobCounts.invalidate();
       utils.personalized.getTotalJobCount.invalidate();
       utils.personalized.getLastGlobalSearch.invalidate();
@@ -445,6 +413,7 @@ export function TrackedJobsPersonalized() {
           description: "Added to your Applied Jobs list",
         });
         utils.personalized.getEligibleJobs.invalidate();
+        utils.personalized.getBoardJobs.invalidate();
         utils.personalized.getAppliedJobs.invalidate();
       } else {
         toast.info("Already Applied", {
@@ -678,6 +647,7 @@ export function TrackedJobsPersonalized() {
       setSelectedJobs(new Set());
       setShowBulkActions(false);
       utils.personalized.getEligibleJobs.invalidate();
+      utils.personalized.getBoardJobs.invalidate();
       utils.personalized.getAppliedJobs.invalidate();
     },
     onError: error =>
@@ -692,6 +662,7 @@ export function TrackedJobsPersonalized() {
       setSelectedJobs(new Set());
       setShowBulkActions(false);
       utils.personalized.getEligibleJobs.invalidate();
+      utils.personalized.getBoardJobs.invalidate();
     },
     onError: error =>
       toast.error("Bulk reject failed", {
@@ -702,6 +673,7 @@ export function TrackedJobsPersonalized() {
   const setQueued = trpc.automation.setQueued.useMutation({
     onSuccess: async () => {
       await utils.personalized.getEligibleJobs.invalidate();
+      utils.personalized.getBoardJobs.invalidate();
     },
     onError: error =>
       toast.error("Queue update failed", {
@@ -717,6 +689,7 @@ export function TrackedJobsPersonalized() {
       setSelectedJobs(new Set());
       setShowBulkActions(false);
       await utils.personalized.getEligibleJobs.invalidate();
+      utils.personalized.getBoardJobs.invalidate();
     },
     onError: error =>
       toast.error("Queue update failed", {
@@ -740,6 +713,7 @@ export function TrackedJobsPersonalized() {
       ]);
       setTimeout(() => setTerminalBoxes([]), 2000);
       utils.personalized.getEligibleJobs.invalidate();
+      utils.personalized.getBoardJobs.invalidate();
       utils.personalized.getDuplicateGroups.invalidate();
     },
     onError: error => {
@@ -802,6 +776,8 @@ export function TrackedJobsPersonalized() {
   const eligibleJobs = jobs.filter(
     j => (j.aiAnalysis as any)?.eligible === true
   );
+  const rejectedJobs = jobs.filter(j => (j.aiAnalysis as any)?.eligible === false);
+  const pendingJobs = jobs.filter(j => typeof (j.aiAnalysis as any)?.eligible !== "boolean");
   const filteredEligibleJobs = eligibleJobs.filter(job => {
     const matchesSearch =
       !searchQuery ||
@@ -867,8 +843,8 @@ export function TrackedJobsPersonalized() {
             bestJob = job;
             continue;
           }
-          const scoreA = getJobFitScore(bestJob);
-          const scoreB = getJobFitScore(job);
+          const scoreA = getJobFitScore(bestJob) ?? -1;
+          const scoreB = getJobFitScore(job) ?? -1;
           if (scoreB > scoreA) bestJob = job;
         }
         if (bestJob) {
@@ -888,8 +864,8 @@ export function TrackedJobsPersonalized() {
   // Sort eligible jobs
   const sortedEligibleJobs = [...deduplicatedJobs].sort((a, b) => {
     if (sortBy === "fit_score") {
-      const scoreA = getJobFitScore(a);
-      const scoreB = getJobFitScore(b);
+      const scoreA = getJobFitScore(a) ?? -1;
+      const scoreB = getJobFitScore(b) ?? -1;
       return scoreB - scoreA; // Highest first
     } else if (sortBy === "salary") {
       const salA = a.salaryMax ?? a.salaryMin ?? 0;
@@ -1166,7 +1142,7 @@ export function TrackedJobsPersonalized() {
             scanLastNew={lastGlobalSearch?.newJobsFound}
             onFilter={handleAIAnalysis}
             filterIsPending={aiAnalysis.isPending}
-            filterEnabled={workflowState.aiAnalysisEnabled}
+            filterEnabled={hasJobsToFilter}
             filterPendingCount={pendingCounts?.unanalyzedJobs}
             filterLastCompletedAt={lastAIAnalysis?.completedAt ?? undefined}
             filterEligible={eligibleFromFilter}
@@ -1175,7 +1151,7 @@ export function TrackedJobsPersonalized() {
             scoreIsPending={fitScoring.isPending}
             scoreEnabled={eligibleJobs.length > 0}
             scoreUnscoredCount={
-              eligibleJobs.filter(j => !(j.aiAnalysis as any)?.fitScore).length
+              eligibleJobs.filter(j => getJobFitScore(j) === null).length
             }
             onCleanup={handleCleanupRequest}
             cleanupIsPending={cleanDatabase.isPending}
@@ -1208,14 +1184,12 @@ export function TrackedJobsPersonalized() {
           <StatusStrip
             scanned={totalJobCount}
             eligible={eligibleJobs.length}
-            filteredOut={
-              jobs.filter(j => (j.aiAnalysis as any)?.eligible === false).length
-            }
+            filteredOut={rejectedJobs.length}
             scored={
-              eligibleJobs.filter(j => (j.aiAnalysis as any)?.fitScore).length
+              eligibleJobs.filter(j => getJobFitScore(j) !== null).length
             }
             awaitingScore={
-              eligibleJobs.filter(j => !(j.aiAnalysis as any)?.fitScore).length
+              eligibleJobs.filter(j => getJobFitScore(j) === null).length
             }
           />
 
@@ -1662,8 +1636,7 @@ export function TrackedJobsPersonalized() {
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
               <p>Loading your job board...</p>
             </div>
-          ) : jobs.filter(j => (j.aiAnalysis as any)?.eligible === true)
-              .length === 0 ? (
+          ) : eligibleJobs.length === 0 ? (
             <div
               className="flex flex-col items-center justify-center py-12 text-center border rounded-xl bg-muted/10"
               aria-live="polite"
@@ -1675,7 +1648,9 @@ export function TrackedJobsPersonalized() {
                   {jobs.length === 0 ? (
                     <>
                       <h3 className="text-lg font-semibold mb-2">
-                        Nothing scanned yet
+                        {totalJobCount === 0 && !lastGlobalSearch?.completedAt
+                          ? "Nothing scanned yet"
+                          : "No jobs waiting for review"}
                       </h3>
                       <p className="text-muted-foreground">
                         Click{" "}
@@ -1694,13 +1669,13 @@ export function TrackedJobsPersonalized() {
                         page.
                       </p>
                     </>
-                  ) : jobs.some(j => j.aiAnalysis as any) ? (
+                  ) : pendingJobs.length === 0 ? (
                     <>
                       <h3 className="text-lg font-semibold mb-2">
                         No eligible matches
                       </h3>
                       <p className="text-muted-foreground">
-                        {jobs.length} job{jobs.length === 1 ? "" : "s"} scanned,
+                        {rejectedJobs.length} job{rejectedJobs.length === 1 ? "" : "s"} scanned,
                         but none passed the AI filter for your profile. Try
                         widening your{" "}
                         <a
@@ -1720,7 +1695,7 @@ export function TrackedJobsPersonalized() {
                         Jobs scanned, waiting for AI filter
                       </h3>
                       <p className="text-muted-foreground">
-                        {jobs.length} job{jobs.length === 1 ? "" : "s"} scanned
+                        {pendingJobs.length} job{pendingJobs.length === 1 ? "" : "s"} scanned
                         but not yet evaluated. Click{" "}
                         <span className="text-foreground font-medium">
                           Run AI Filtering
@@ -1738,6 +1713,7 @@ export function TrackedJobsPersonalized() {
               <div className="space-y-4 mb-12">
                 {sortedEligibleJobs.map(job => {
                   const aiData = job.aiAnalysis as any;
+                  const fitScore = getJobFitScore(job);
                   const isExpanded = expandedJobId === job.id;
                   const isSelected = selectedJobs.has(job.id);
 
@@ -1808,23 +1784,23 @@ export function TrackedJobsPersonalized() {
                                 })()}
                                 {/* Platform identity now lives on the platform-coloured Apply button below. */}
                                 {/* AI Match Score Badge */}
-                                {getJobFitScore(job) > 0 && (
+                                {fitScore !== null && (
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <Badge
                                           className={`text-[10px] flex-shrink-0 font-bold ${
-                                            getJobFitScore(job) >= 80
+                                            fitScore >= 80
                                               ? "bg-green-500/20 text-green-300 border-green-500/40"
-                                              : getJobFitScore(job) >= 60
+                                              : fitScore >= 60
                                                 ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/40"
-                                                : getJobFitScore(job) >= 40
+                                                : fitScore >= 40
                                                   ? "bg-orange-500/20 text-orange-300 border-orange-500/40"
                                                   : "bg-red-500/20 text-red-300 border-red-500/40"
                                           }`}
                                         >
                                           <Target className="h-3 w-3 mr-1" />
-                                          {getJobFitScore(job)}% fit
+                                          {fitScore}% fit
                                         </Badge>
                                       </TooltipTrigger>
                                       <TooltipContent className="max-w-xs">
@@ -2079,12 +2055,14 @@ export function TrackedJobsPersonalized() {
                 })}
               </div>
 
+            </>
+          )}
+
               {/* Section 2: filtered-job review. Collapsed by default —
               filtered-out jobs are a distinct concern from the eligible list
               and don't need to push it below the fold on every page load.
               The toggle persists nothing; reopens to collapsed on refresh. */}
-              {jobs.filter(j => (j.aiAnalysis as any)?.eligible === false)
-                .length > 0 && (
+              {!jobsLoading && rejectedJobs.length > 0 && (
                 <div className="mt-12">
                   <button
                     type="button"
@@ -2103,11 +2081,7 @@ export function TrackedJobsPersonalized() {
                       Jobs Filtered by AI
                     </h2>
                     <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/40">
-                      {
-                        jobs.filter(
-                          j => (j.aiAnalysis as any)?.eligible === false
-                        ).length
-                      }{" "}
+                      {rejectedJobs.length}{" "}
                       filtered out
                     </Badge>
                     <span className="ml-auto text-xs text-muted-foreground">
@@ -2132,11 +2106,7 @@ export function TrackedJobsPersonalized() {
                       </p>
 
                       <div className="space-y-4">
-                        {jobs
-                          .filter(
-                            j => (j.aiAnalysis as any)?.eligible === false
-                          )
-                          .map(job => {
+                        {rejectedJobs.map(job => {
                             const aiAnalysis = job.aiAnalysis as any;
 
                             return (
@@ -2277,8 +2247,6 @@ export function TrackedJobsPersonalized() {
                   )}
                 </div>
               )}
-            </>
-          )}
         </main>
       </div>
 

@@ -3,11 +3,11 @@
  * Handles: Start New Scan, AI Job Filtering, AI Match Scoring, Database Cleanup
  */
 
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router, workspaceResetProcedure } from "../_core/trpc";
 import { searchJobs, type SupportedPlatform } from "../routers_indeed";
 import { bulkSaveTrackedJobs, createJobScanHistory, updateJobScanHistory, getActiveJobTitles } from "../db";
 import { loadUserProfileForFilter, loadJobSearchCriteria, loadEnabledPlatforms } from "../user-profile";
-import { filterRemoteEligibility, filterDegreeRequirements, filterExperienceRequirements } from "../ai-job-filter-csv";
+import { batchAnalyzeJobs } from "../ai-job-filter-csv";
 import { scoreJobFit } from "../services/dedup-and-scoring";
 import { getDb } from "../db";
 import { trackedJobs, jobScanHistory, userJobTitles, userProfiles, searchPresets, applicationNotes, users, appliedJobs, applicationProfiles, inboxMessages, userSettings, scraperHealth } from "../../drizzle/schema";
@@ -18,20 +18,24 @@ import fs from "node:fs";
 import path from "node:path";
 import { ENV } from "../_core/env";
 import { clearStoredSettings } from "../_core/settings";
+import { assertOperationActive, OperationCancelledError, resetWorkspace, withWorkspaceOperation } from "../operation-lifecycle";
+
+const operationProcedure = protectedProcedure.use(({ next }) => withWorkspaceOperation(() => next()));
 
 const OPERATION_CONTROL_POLL_MS = 2000;
 async function enforceOperationControls(scanId: number, db: any) {
   while (true) {
+    assertOperationActive();
     const [scan] = await db
       .select()
       .from(jobScanHistory)
       .where(eq(jobScanHistory.id, scanId))
       .limit(1);
 
-    if (!scan) return;
+    if (!scan) throw new OperationCancelledError("Operation cancelled because its scan was removed");
 
     if (scan.operationCancelled) {
-      throw new Error("Operation cancelled by user");
+      throw new OperationCancelledError("Operation cancelled by user");
     }
 
     if (scan.operationPaused) {
@@ -65,7 +69,7 @@ export const scanRouter = router({
    * Searches all job titles across all locations (dynamic from user profile)
    * Saves ALL jobs to database WITHOUT AI filtering
    */
-  runGlobalSearch: protectedProcedure.mutation(async ({ ctx }) => {
+  runGlobalSearch: operationProcedure.mutation(async ({ ctx }) => {
     const executeSearch = async () => {
 
     // Load dynamic search criteria from user profile
@@ -188,6 +192,7 @@ export const scanRouter = router({
             336, // 14 days
             enabledPlatforms as SupportedPlatform[],
           );
+          await enforceOperationControls(scanId, db);
 
           if (!result.success) {
             console.error(`[Global Search] Search failed for "${title}" in ${location.description}:`, result.error);
@@ -319,6 +324,7 @@ export const scanRouter = router({
       };
 
     } catch (error: any) {
+      assertOperationActive();
       console.error("[Global Search] Error:", error);
       
       await updateJobScanHistory(scanId, {
@@ -337,235 +343,71 @@ export const scanRouter = router({
   /**
    * AI Job Filtering (multi-stage LLM filtering)
    */
-  runAIAnalysis: protectedProcedure.mutation(async ({ ctx }) => {
-    console.log("[AI Job Filtering] Starting 3-stage LLM filtering");
+  runAIAnalysis: operationProcedure.mutation(async ({ ctx }) => {
     let scanId: number | undefined;
-
     try {
       const userProfile = await loadUserProfileForFilter(ctx.user.id);
-      console.log(`[AI Job Filtering] User profile: state=${userProfile.state}, education=${userProfile.educationLevel}, experience=${userProfile.yearsExperience}`);
-      
       const db = await getDb();
-      if (!db) throw new Error("Database not available");
-      
-      const unanalyzedJobs = await db
-        .select()
-        .from(trackedJobs)
-        .where(
-          and(
-            eq(trackedJobs.userId, ctx.user.id),
-            isNull(trackedJobs.aiAnalysis)
-          )
-        );
-
+      const unanalyzedJobs = await db.select().from(trackedJobs).where(
+        and(eq(trackedJobs.userId, ctx.user.id), isNull(trackedJobs.aiAnalysis)),
+      );
       if (unanalyzedJobs.length === 0) {
-        console.log("[AI Job Filtering] No unanalyzed jobs found");
-        return {
-          success: true,
-          totalAnalyzed: 0,
-          eligible: 0,
-          ineligible: 0,
-          message: "No unanalyzed jobs found",
-        };
+        return { success: true, totalAnalyzed: 0, eligible: 0, ineligible: 0,
+          message: "No unanalyzed jobs found" };
       }
-
-      console.log(`[AI Job Filtering] Found ${unanalyzedJobs.length} jobs to analyze`);
-
       scanId = await createJobScanHistory({
-        userId: ctx.user.id,
-        platform: "indeed",
-        scanType: "ai_analysis",
-        searchTerms: "AI Job Filtering - 3 Stage Filter",
-        location: `${userProfile.state} / Remote`,
-        radiusMiles: 0,
-        totalJobsFound: unanalyzedJobs.length,
-        newJobsFound: 0,
-        status: "running",
-        currentPhase: `Stage 1: Remote/${userProfile.state} Eligibility`,
-        currentProgress: 0,
-        totalProgress: unanalyzedJobs.length,
-        progressMessage: "Starting AI Job Filtering...",
-        lastProgressUpdate: new Date(),
+        userId: ctx.user.id, platform: "multi", scanType: "ai_analysis",
+        searchTerms: "AI Job Filtering", location: userProfile.state,
+        radiusMiles: 0, totalJobsFound: unanalyzedJobs.length, newJobsFound: 0,
+        status: "running", currentPhase: "Location requirements",
+        currentProgress: 0, totalProgress: unanalyzedJobs.length,
+        progressMessage: "Starting AI filtering", lastProgressUpdate: new Date(),
       });
-
-      // Stage 1: Remote/Location Eligibility
-      console.log(`[AI Job Filtering] Starting Stage 1: Remote/${userProfile.state} Eligibility`);
-      
-      await updateJobScanHistory(scanId, {
-        currentPhase: `Stage 1: Remote/${userProfile.state} Eligibility`,
-        currentProgress: 0,
-        totalProgress: unanalyzedJobs.length,
-        progressMessage: `Analyzing remote work eligibility and ${userProfile.state} restrictions...`,
-        lastProgressUpdate: new Date(),
-      });
-
-      await enforceOperationControls(scanId, db);
-      const stage1Result = await filterRemoteEligibility(unanalyzedJobs, userProfile);
-      console.log(`[AI Job Filtering] Stage 1 complete: ${stage1Result.eligible.length}/${unanalyzedJobs.length} passed`);
-
-      await updateJobScanHistory(scanId, {
-        currentProgress: unanalyzedJobs.length,
-        progressMessage: `Stage 1 complete: ${stage1Result.eligible.length}/${unanalyzedJobs.length} jobs passed`,
-        lastProgressUpdate: new Date(),
-      });
-
-      for (const job of stage1Result.filtered) {
-        await db
-          .update(trackedJobs)
-          .set({
-            aiAnalysis: {
-              eligible: false,
-              reason: `Not remote or excludes ${userProfile.state}`,
-              analyzedAt: new Date().toISOString(),
-            },
-          })
-          .where(eq(trackedJobs.id, job.id));
-      }
-
-      if (stage1Result.eligible.length === 0) {
-        console.log("[AI Job Filtering] No jobs passed Stage 1 - stopping");
-        await updateJobScanHistory(scanId, {
-          status: "completed",
-          completedAt: new Date(),
+      const checkControls = () => enforceOperationControls(scanId!, db);
+      // Use the local row ID: providers may reuse the same external job ID.
+      // No eligibility is persisted until every stage has valid decisions.
+      const analyses = await batchAnalyzeJobs(unanalyzedJobs.map(job => ({
+        id: String(job.id), title: job.title, company: job.company,
+        description: job.description || "", location: job.location || "",
+        salaryMin: job.salaryMin, salaryMax: job.salaryMax,
+        salaryInterval: job.salaryInterval,
+      })), async (current, total, phase) => {
+        await checkControls();
+        await updateJobScanHistory(scanId!, {
+          currentPhase: phase, currentProgress: current, totalProgress: total,
+          progressMessage: phase, lastProgressUpdate: new Date(),
         });
-        return {
-          success: true,
-          totalAnalyzed: unanalyzedJobs.length,
-          eligible: 0,
-          ineligible: unanalyzedJobs.length,
-          message: `Analyzed ${unanalyzedJobs.length} jobs: 0 eligible (all filtered in Stage 1)`,
-        };
+      }, userProfile, checkControls);
+      await checkControls();
+      let eligible = 0;
+      for (const job of unanalyzedJobs) {
+        await checkControls();
+        const analysis = analyses.get(String(job.id));
+        if (!analysis) throw new Error("AI filtering did not return a decision; retry analysis");
+        await db.update(trackedJobs).set({
+          aiAnalysis: { eligible: analysis.eligible, reason: analysis.reason,
+            confidence: analysis.confidence, ...analysis.details,
+            analyzedAt: new Date().toISOString() },
+        }).where(and(eq(trackedJobs.id, job.id), eq(trackedJobs.userId, ctx.user.id)));
+        if (analysis.eligible) eligible++;
       }
-
-      // Stage 2: Degree Requirements
-      console.log(`[AI Job Filtering] Starting Stage 2: Degree Requirements (user has: ${userProfile.educationLevel})`);
-
-      await updateJobScanHistory(scanId, {
-        currentPhase: "Stage 2: Degree Requirements",
-        currentProgress: 0,
-        totalProgress: stage1Result.eligible.length,
-        progressMessage: `Analyzing degree requirements (user education: ${userProfile.educationLevel})...`,
-        lastProgressUpdate: new Date(),
-      });
-
-      await enforceOperationControls(scanId, db);
-      const stage2Result = await filterDegreeRequirements(stage1Result.eligible, userProfile);
-      console.log(`[AI Job Filtering] Stage 2 complete: ${stage2Result.eligible.length}/${stage1Result.eligible.length} passed`);
-
-      await updateJobScanHistory(scanId, {
-        currentProgress: stage1Result.eligible.length,
-        progressMessage: `Stage 2 complete: ${stage2Result.eligible.length}/${stage1Result.eligible.length} jobs passed`,
-        lastProgressUpdate: new Date(),
-      });
-
-      for (const job of stage2Result.filtered) {
-        await db
-          .update(trackedJobs)
-          .set({
-            aiAnalysis: {
-              eligible: false,
-              reason: `Requires education beyond ${userProfile.educationLevel}`,
-              analyzedAt: new Date().toISOString(),
-            },
-          })
-          .where(eq(trackedJobs.id, job.id));
-      }
-
-      if (stage2Result.eligible.length === 0) {
-        console.log("[AI Job Filtering] No jobs passed Stage 2 - stopping");
-        await updateJobScanHistory(scanId, {
-          status: "completed",
-          completedAt: new Date(),
-        });
-        return {
-          success: true,
-          totalAnalyzed: unanalyzedJobs.length,
-          eligible: 0,
-          ineligible: unanalyzedJobs.length,
-          message: `Analyzed ${unanalyzedJobs.length} jobs: 0 eligible (all filtered in Stages 1-2)`,
-        };
-      }
-
-      // Stage 3: Experience Requirements
-      console.log(`[AI Job Filtering] Starting Stage 3: Experience Requirements (user has: ${userProfile.yearsExperience} years)`);
-
-      await updateJobScanHistory(scanId, {
-        currentPhase: "Stage 3: Experience Requirements",
-        currentProgress: 0,
-        totalProgress: stage2Result.eligible.length,
-        progressMessage: `Analyzing experience requirements (user: ${userProfile.yearsExperience} years)...`,
-        lastProgressUpdate: new Date(),
-      });
-
-      await enforceOperationControls(scanId, db);
-      const stage3Result = await filterExperienceRequirements(stage2Result.eligible, userProfile);
-      console.log(`[AI Job Filtering] Stage 3 complete: ${stage3Result.eligible.length}/${stage2Result.eligible.length} passed`);
-
-      await updateJobScanHistory(scanId, {
-        currentProgress: stage2Result.eligible.length,
-        progressMessage: `Stage 3 complete: ${stage3Result.eligible.length}/${stage2Result.eligible.length} jobs passed`,
-        lastProgressUpdate: new Date(),
-      });
-
-      for (const job of stage3Result.filtered) {
-        await db
-          .update(trackedJobs)
-          .set({
-            aiAnalysis: {
-              eligible: false,
-              reason: `Requires more than ${userProfile.yearsExperience} years experience`,
-              analyzedAt: new Date().toISOString(),
-            },
-          })
-          .where(eq(trackedJobs.id, job.id));
-      }
-
-      for (const job of stage3Result.eligible) {
-        await db
-          .update(trackedJobs)
-          .set({
-            aiAnalysis: {
-              eligible: true,
-              reason: "Passed all filters",
-              analyzedAt: new Date().toISOString(),
-            },
-          })
-          .where(eq(trackedJobs.id, job.id));
-      }
-
-      const eligible = stage3Result.eligible.length;
       const ineligible = unanalyzedJobs.length - eligible;
-
-      console.log(`[AI Job Filtering] ✅ COMPLETE - Analyzed ${unanalyzedJobs.length} jobs: ${eligible} eligible, ${ineligible} ineligible`);
-
+      await checkControls();
       await updateJobScanHistory(scanId, {
-        status: "completed",
-        currentPhase: "Complete",
-        currentProgress: unanalyzedJobs.length,
-        totalProgress: unanalyzedJobs.length,
+        status: "completed", currentPhase: "Complete",
+        currentProgress: unanalyzedJobs.length, totalProgress: unanalyzedJobs.length,
         progressMessage: `Analysis complete: ${eligible} eligible, ${ineligible} ineligible`,
         completedAt: new Date(),
       });
-
-      return {
-        success: true,
-        totalAnalyzed: unanalyzedJobs.length,
-        eligible,
-        ineligible,
-        message: `Analyzed ${unanalyzedJobs.length} jobs: ${eligible} eligible, ${ineligible} ineligible`,
-      };
-
+      return { success: true, totalAnalyzed: unanalyzedJobs.length, eligible, ineligible,
+        message: `Analyzed ${unanalyzedJobs.length} jobs: ${eligible} eligible, ${ineligible} ineligible` };
     } catch (error: any) {
-      console.error("[AI Job Filtering] Error:", error);
-      
-      if (scanId) {
-        await updateJobScanHistory(scanId, {
-          status: "failed",
-          errorMessage: error.message,
-          completedAt: new Date(),
-        });
-      }
-      
+      assertOperationActive();
+      if (scanId) await updateJobScanHistory(scanId, {
+        status: "failed", errorMessage: error.message,
+        progressMessage: "Analysis failed. Unanalyzed jobs can be retried.",
+        completedAt: new Date(),
+      });
       throw error;
     }
   }),
@@ -730,7 +572,7 @@ export const scanRouter = router({
    * AI Match Scoring
    * Scores eligible jobs against the user's profile using LLM
    */
-  runFitScoring: protectedProcedure.mutation(async ({ ctx }) => {
+  runFitScoring: operationProcedure.mutation(async ({ ctx }) => {
     console.log("[AI Match Scoring] Starting LLM-powered fit scoring");
     let scanId: number | undefined;
 
@@ -797,6 +639,7 @@ export const scanRouter = router({
           });
         }
       );
+      await enforceOperationControls(scanId, db);
 
       // Update each job's aiAnalysis with the fit score
       let updated = 0;
@@ -841,6 +684,7 @@ export const scanRouter = router({
       };
 
     } catch (error: any) {
+      assertOperationActive();
       console.error("[AI Match Scoring] Error:", error);
       if (scanId) {
         await updateJobScanHistory(scanId, {
@@ -854,7 +698,7 @@ export const scanRouter = router({
   }),
 
   /** Clear all locally stored Job Matrix data and return to onboarding. */
-  nukeEverything: protectedProcedure.mutation(async ({ ctx }) => {
+  nukeEverything: workspaceResetProcedure.mutation(({ ctx }) => resetWorkspace(async () => {
     const db = await getDb();
     const userId = ctx.user.id;
 
@@ -888,5 +732,5 @@ export const scanRouter = router({
     console.log("[Local Data Reset] Reset complete. User is now a fresh install.");
     
     return { success: true, message: "Local Job Matrix data reset." };
-  }),
+  })),
 });

@@ -11,6 +11,7 @@ import { getDb } from "../db";
 import { invokeLLM } from "../_core/llm";
 import { notifyOwner } from "../_core/notification";
 import { getGmailConnectionSummary, gmailApiRequest } from "./gmail-client";
+import { withWorkspaceOperation } from "../operation-lifecycle";
 
 export type InboxCategory = InboxMessage["category"];
 export type InboxSource = InboxMessage["source"];
@@ -306,51 +307,22 @@ export function isPlausiblyJobRelated(
   return /\b(application|applicant|candidate|career|hiring|interview|job|position|recruiter|assessment|screening|employment offer|offer letter)\b/.test(text);
 }
 
-async function recordApplicationEvent(
+async function recordIncomingMessageNote(
   userId: number,
   job: AppliedJob,
   message: ParsedIncomingMessage,
   classification: Classification,
 ): Promise<void> {
   const db = await getDb();
-  const statusByCategory: Partial<Record<InboxCategory, AppliedJob["applicationStatus"]>> = {
-    interview: "interview",
-    offer: "offer",
-    rejection: "rejected",
-  };
-  const desiredStatus = statusByCategory[classification.category];
-  const canTransition = desiredStatus === "interview"
-    ? job.applicationStatus === "applied"
-    : desiredStatus === "offer"
-      ? job.applicationStatus === "applied" || job.applicationStatus === "interview"
-      : desiredStatus === "rejected"
-        ? job.applicationStatus === "applied" || job.applicationStatus === "interview"
-        : false;
-
-  let newStatus: AppliedJob["applicationStatus"] | null = null;
-  if (desiredStatus && canTransition && classification.confidence >= 90) {
-    newStatus = desiredStatus;
-    const updates: Partial<AppliedJob> = { applicationStatus: desiredStatus };
-    if (desiredStatus === "interview") updates.interviewAt = message.receivedAt;
-    if (desiredStatus === "offer") updates.offerAt = message.receivedAt;
-    if (desiredStatus === "rejected") updates.resolvedAt = message.receivedAt;
-    await db
-      .update(appliedJobs)
-      .set(updates)
-      .where(and(eq(appliedJobs.id, job.id), eq(appliedJobs.userId, userId)));
-  }
-
-  const noteType = classification.category === "interview" ? "interview"
-    : classification.category === "offer" ? "offer"
-      : classification.category === "rejection" ? "rejection"
-        : "note";
+  // Textual confidence is not employer authentication. Inbound mail can add
+  // a reviewable hint, but only explicit application controls change status.
   await db.insert(applicationNotes).values({
     userId,
     jobId: job.id,
-    noteType,
-    content: `${CATEGORY_LABELS[classification.category]}: ${classification.summary}\nFrom: ${message.sender || message.senderAddress}`,
-    oldStatus: newStatus ? job.applicationStatus : null,
-    newStatus,
+    noteType: "note",
+    content: `Unverified email classified as ${CATEGORY_LABELS[classification.category]}: ${classification.summary}\nFrom: ${message.sender} <${message.senderAddress}>`,
+    oldStatus: null,
+    newStatus: null,
     createdAt: message.receivedAt,
   });
 }
@@ -386,6 +358,13 @@ async function fetchNewMessageIds(startHistoryId: string): Promise<{ ids: string
 export async function pollGmailInboxForUser(
   userId: number,
   options: { force?: boolean } = {},
+) {
+  return withWorkspaceOperation(() => pollGmailInboxInOperation(userId, options));
+}
+
+async function pollGmailInboxInOperation(
+  userId: number,
+  options: { force?: boolean },
 ) {
   if (!getGmailConnectionSummary().connected) {
     return { checked: false, imported: 0, matched: 0, needsReview: 0, message: "Gmail is not connected." };
@@ -456,7 +435,7 @@ export async function pollGmailInboxForUser(
     // A weak textual match is useful as a review hint but is not strong enough
     // to link a personal email or advance an application automatically.
     const linkedJob = applicationMatch.confidence >= 70 ? applicationMatch.job : null;
-    const reviewNeeded = classification.category === "uncertain" ||
+    const reviewNeeded = ["interview", "offer", "rejection", "uncertain"].includes(classification.category) ||
       classification.confidence < 80 || !linkedJob || applicationMatch.confidence < 70;
 
     await db.insert(inboxMessages).values({
@@ -481,7 +460,7 @@ export async function pollGmailInboxForUser(
     imported += 1;
     if (linkedJob) {
       matched += 1;
-      await recordApplicationEvent(userId, linkedJob, message, classification);
+      await recordIncomingMessageNote(userId, linkedJob, message, classification);
     }
     if (reviewNeeded) needsReview += 1;
 

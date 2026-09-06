@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { userSettings } from "../../drizzle/schema";
 import { LOCAL_USER_ID, getDb } from "../db";
+import { assertOperationActive, withWorkspaceOperation } from "../operation-lifecycle";
 import {
   clearGmailConnection,
   readSettings,
@@ -90,6 +91,14 @@ export function createGmailAuthorizationUrl(origin: string): string {
 }
 
 export async function completeGmailAuthorization(code: string, state: string) {
+  return withWorkspaceOperation(async () => {
+    const result = await finishGmailAuthorization(code, state);
+    assertOperationActive();
+    return result;
+  });
+}
+
+async function finishGmailAuthorization(code: string, state: string) {
   const pending = pendingAuthorizations.get(state);
   pendingAuthorizations.delete(state);
   if (!pending || pending.expiresAt <= Date.now()) {
@@ -113,6 +122,7 @@ export async function completeGmailAuthorization(code: string, state: string) {
     access_token: string;
     refresh_token?: string;
   }>(response);
+  assertOperationActive();
 
   const refreshToken = tokens.refresh_token ?? gmail.refreshToken;
   if (!refreshToken) {
@@ -123,6 +133,7 @@ export async function completeGmailAuthorization(code: string, state: string) {
     emailAddress: string;
     historyId: string;
   }>("/users/me/profile", tokens.access_token);
+  assertOperationActive();
 
   updateGmailSettings({
     refreshToken,

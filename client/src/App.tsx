@@ -108,10 +108,24 @@ const GuardedPreferences = () => (
 const GuardedAnalytics = () => (
   <RequireOnboardingComplete component={Analytics} />
 );
-const GuardedSettings = () => (
-  <RequireOnboardingComplete component={SettingsPage} />
-);
-function Router() {
+function GuardedSettings() {
+  const { user, loading } = useAuth();
+  if (loading || !user) return <RouteLoading />;
+  const providerSetupOnly = user.onboardingCompleted !== 1;
+  return (
+    <>
+      {providerSetupOnly && (
+        <div className="container max-w-3xl mx-auto pt-6">
+          <a href="/onboarding" className="underline" data-agent-action="return-to-onboarding">
+            Return to setup
+          </a>
+        </div>
+      )}
+      <SettingsPage providerSetupOnly={providerSetupOnly} />
+    </>
+  );
+}
+export function Router() {
   return (
     <Suspense fallback={<RouteLoading />}>
       <Switch>
@@ -139,8 +153,16 @@ const BARE_ROUTES = new Set(["/onboarding"]);
 
 function AppShell() {
   const [location] = useLocation();
+  const { user } = useAuth();
   const isShowroom = import.meta.env.VITE_SHOWROOM_MODE === "true";
   const isShowroomUtilityPage = location.startsWith("/showroom/");
+  if (location === "/settings" && user && user.onboardingCompleted !== 1) {
+    return (
+      <SubNavProvider>
+        <main><Router /></main>
+      </SubNavProvider>
+    );
+  }
   if (BARE_ROUTES.has(location) || isShowroomUtilityPage) {
     return (
       <main>

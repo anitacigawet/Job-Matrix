@@ -80,6 +80,34 @@ describe("personalized router integration", () => {
     await expect(getActiveJobTitles(1)).resolves.toEqual(["Data Analyst"]);
   });
 
+  it("returns unanalysed and AI-filtered jobs on the board without weakening eligibility", async () => {
+    const db = await getDb();
+    const base = { userId: 1, platform: "indeed" as const, title: "Analyst", company: "Fixture", jobUrl: "https://example.test/job" };
+    await db.insert(trackedJobs).values([
+      { ...base, jobId: "pending" },
+      { ...base, jobId: "filtered", aiAnalysis: { eligible: false } },
+      { ...base, jobId: "eligible", aiAnalysis: { eligible: true } },
+      { ...base, jobId: "applied", status: "applied", aiAnalysis: { eligible: true } },
+      { ...base, jobId: "dismissed", status: "rejected", aiAnalysis: { eligible: true } },
+    ]);
+    const api = await caller();
+    expect((await api.personalized.getBoardJobs()).map(job => job.jobId).sort()).toEqual(["eligible", "filtered", "pending"]);
+    expect((await api.personalized.getEligibleJobs({})).map(job => job.jobId)).toEqual(["eligible"]);
+  });
+
+  it("neutralizes CSV formulas at the real eligible export and preserves numeric zero", async () => {
+    const db = await getDb();
+    await db.insert(trackedJobs).values({
+      userId: 1, platform: "indeed", jobId: "csv", title: '=HYPERLINK("https://example.test")',
+      company: "+SUM(A1:A2)", location: "\t@location", salaryMin: 0, salaryMax: -1,
+      jobType: 'Full "time"', jobUrl: "https://example.test/job", aiAnalysis: { eligible: true },
+    });
+    const csv = await (await caller()).personalized.exportEligibleJobsCSV();
+    expect(csv).toContain('"\'=HYPERLINK(""https://example.test"")"');
+    expect(csv).toContain('"\'+SUM(A1:A2)"');
+    expect(csv).toContain('"\'\t@location",0,-1,"Full ""time"""');
+  });
+
   it("moves a tracked job through the application pipeline", async () => {
     const db = await getDb();
     await db.insert(trackedJobs).values({

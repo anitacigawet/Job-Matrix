@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ENV, DEFAULT_PROVIDER, PROVIDER_DEFAULT_MODEL, PROVIDER_ORDER, type ProviderId } from "./env";
+import { assertOperationActive } from "../operation-lifecycle";
 
 /**
  * Per-source credential shapes for Tier-1 data sources. Each entry holds
@@ -114,6 +115,7 @@ export function readSettings(): AppSettings {
 }
 
 export function writeSettings(next: Partial<AppSettings>): AppSettings {
+  assertOperationActive();
   ensureDir();
   const merged = { ...readSettings(), ...next };
   const pendingPath = `${ENV.settingsPath}.${process.pid}.pending`;
@@ -139,6 +141,7 @@ export function writeSettings(next: Partial<AppSettings>): AppSettings {
 
 /** Remove all settings saved by Job Matrix and clear the in-process cache. */
 export function clearStoredSettings(): void {
+  assertOperationActive();
   if (fs.existsSync(ENV.settingsPath)) {
     fs.unlinkSync(ENV.settingsPath);
   }

@@ -32,6 +32,7 @@ import {
 } from "../drizzle/schema";
 import * as schema from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { assertOperationActive } from "./operation-lifecycle";
 
 export const LOCAL_USER_ID = 1;
 
@@ -178,6 +179,9 @@ export async function initDb(): Promise<void> {
 
   _drizzle = drizzleProxy(
     async (queryStr, params, method) => {
+      // The check and SQL run share a synchronous boundary, so a reset cannot
+      // slip between them and let a suspended operation restore cleared data.
+      assertOperationActive();
       const p = (params ?? []) as any[];
       const upper = queryStr.trimStart().toUpperCase();
       const isMutation =

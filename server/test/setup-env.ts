@@ -1,9 +1,17 @@
-import os from "node:os";
-import path from "node:path";
+import fs from "node:fs";
+import { afterAll, afterEach } from "vitest";
+import { guardTestFetch, isolateTestEnvironment } from "./isolation";
 
-// Every test process gets its own disposable local files. Setting these before
-// application modules load prevents integration tests from touching data/app.db
-// or the operator's saved API keys.
-process.env.NODE_ENV = "test";
-process.env.DATABASE_PATH = path.join(os.tmpdir(), `job-matrix-vitest-${process.pid}.db`);
-process.env.SETTINGS_PATH = path.join(os.tmpdir(), `job-matrix-vitest-settings-${process.pid}.json`);
+// Vitest runs setup before each test file's application imports. Random, fresh
+// directories prevent PID reuse and previous suites from exposing saved state.
+const directory = isolateTestEnvironment(process.env);
+const guardedFetch = guardTestFetch(globalThis.fetch);
+globalThis.fetch = guardedFetch;
+
+afterEach(() => {
+  globalThis.fetch = guardedFetch;
+});
+
+afterAll(() => {
+  fs.rmSync(directory, { recursive: true, force: true });
+});

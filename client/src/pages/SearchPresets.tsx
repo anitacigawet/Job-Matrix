@@ -26,7 +26,11 @@ const PLATFORMS = [
  * standalone /presets route. The component is therefore body-only:
  * no PageHeader, no container wrapper, no background blurs.
  */
-export function SearchPresetsContent() {
+export function SearchPresetsContent({
+  onPresetApplied,
+}: {
+  onPresetApplied?: () => Promise<void>;
+}) {
   const [, navigate] = useLocation();
   const utils = trpc.useUtils();
   const { data: presets = [], isLoading } = trpc.presets.list.useQuery();
@@ -79,13 +83,16 @@ export function SearchPresetsContent() {
   const [applyingPreset, setApplyingPreset] = useState<(typeof presets)[number] | null>(null);
 
   const applyPreset = trpc.presets.activate.useMutation({
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       // Refresh every query the apply mutation could have changed so
       // /preferences, /jobs and /home reflect the new state immediately.
       utils.presets.list.invalidate();
       utils.personalized.getUserProfile.invalidate();
       utils.onboarding.getJobTitles.invalidate();
       utils.settings.getEnabledPlatforms.invalidate();
+      // The profile form stays mounted across sub-tabs. Refreshing its query
+      // alone cannot replace its already-initialized local fields.
+      await onPresetApplied?.();
       const name = applyingPreset?.name ?? "Preset";
       setApplyingPreset(null);
       if (res.locationWarning) {

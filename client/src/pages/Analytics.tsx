@@ -10,6 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { PageHeader } from "@/components/PageHeader";
 import { useSubNav } from "@/components/SubNav";
+import { getJobFitScore } from "@/lib/job-fit-score";
 
 export function Analytics() {
   const [, setLocation] = useLocation();
@@ -69,7 +70,7 @@ export function Analytics() {
   let scoredJobCount = 0;
   let avgFitScore = 0;
   eligibleJobs?.forEach((job: any) => {
-    const score = job.aiAnalysis?.fitScore?.overall;
+    const score = getJobFitScore(job);
     if (score != null) {
       scoredJobCount++;
       avgFitScore += score;
@@ -85,8 +86,8 @@ export function Analytics() {
 
   // Best matches (top 5 by match score)
   const bestMatches = (eligibleJobs || [])
-    .filter((j: any) => j.aiAnalysis?.fitScore?.overall != null)
-    .sort((a: any, b: any) => (b.aiAnalysis?.fitScore?.overall || 0) - (a.aiAnalysis?.fitScore?.overall || 0))
+    .filter((job: any) => getJobFitScore(job) !== null)
+    .sort((a: any, b: any) => (getJobFitScore(b) ?? 0) - (getJobFitScore(a) ?? 0))
     .slice(0, 5);
 
   // Platform distribution
@@ -523,8 +524,10 @@ export function Analytics() {
             ) : (
               <div className="space-y-3">
                 {bestMatches.map((job: any, i: number) => {
-                  const score = job.aiAnalysis?.fitScore?.overall || 0;
-                  const breakdown = job.aiAnalysis?.fitScore;
+                  const score = getJobFitScore(job) ?? 0;
+                  const breakdown = typeof job.aiAnalysis?.fitScore === "object"
+                    ? job.aiAnalysis.fitScore
+                    : null;
                   return (
                     <div key={job.id} className="flex items-center gap-3 py-2 border-b border-border/30 last:border-0">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${

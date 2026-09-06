@@ -9,6 +9,7 @@ import { trackedJobs, userSettings, applicationNotes } from "../../drizzle/schem
 
 type TrackedJob = InferSelectModel<typeof trackedJobs>;
 import { notifyOwner } from "../_core/notification";
+import { assertOperationActive, withWorkspaceOperation } from "../operation-lifecycle";
 
 // Check every hour if a weekly digest is due
 const DIGEST_CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -31,6 +32,14 @@ export function stopWeeklyDigestScheduler() {
 }
 
 async function checkAndSendDigests() {
+  try {
+    await withWorkspaceOperation(sendDueDigests);
+  } catch (error) {
+    console.error("[WeeklyDigest] Check stopped:", error);
+  }
+}
+
+async function sendDueDigests() {
   try {
     const db = await getDb();
     if (!db) return;
@@ -156,6 +165,7 @@ async function sendDigestForUser(userId: number, since: Date) {
     content += `Visit your dashboard to review these jobs and take action.\n`;
   }
 
+  assertOperationActive();
   await notifyOwner({ title, content });
   console.log(`[WeeklyDigest] Sent digest for user ${userId}: ${newJobs.length} new, ${eligibleJobs.length} eligible`);
 }

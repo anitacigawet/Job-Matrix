@@ -55,6 +55,7 @@ export function ResponseInbox() {
         <div>
           <h2 className="flex items-center gap-2 font-semibold"><Inbox className="h-5 w-5 text-cyan-400" />Employer responses</h2>
           <p className="mt-1 text-sm text-muted-foreground">Email summaries and Google Voice alerts found since Gmail monitoring was connected.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Classifications and matches are suggestions. Check the original message, then use the Applications tab to change a status. Reviewing or linking a response does not change it.</p>
         </div>
         <div className="flex items-center gap-2">
           {reviewCount > 0 && <Badge className="bg-orange-500/20 text-orange-300">{reviewCount} need review</Badge>}
@@ -80,7 +81,7 @@ export function ResponseInbox() {
                     <Badge variant="outline" className={category.className}>{category.label}</Badge>
                     {message.needsReview && <Badge variant="outline" className="border-orange-500/40 text-orange-300"><AlertCircle className="mr-1 h-3 w-3" />Please review</Badge>}
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">From {message.sender || message.senderAddress || message.senderPhone || "Unknown sender"} · {new Date(message.receivedAt).toLocaleString()}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">From {message.sender || message.senderAddress || message.senderPhone || "Unknown sender"}{message.senderAddress && message.sender !== message.senderAddress ? ` <${message.senderAddress}>` : ""} · {new Date(message.receivedAt).toLocaleString()}</p>
                   <p className="mt-3 text-sm" data-agent-value="response-summary">{message.summary}</p>
                   {message.snippet && message.snippet !== message.summary && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{message.snippet}</p>}
                 </div>
@@ -88,7 +89,7 @@ export function ResponseInbox() {
 
               {message.application ? (
                 <div className="flex items-center gap-2 rounded-md border border-green-500/30 bg-green-500/5 p-3 text-sm" data-agent-status="matched-application">
-                  <Briefcase className="h-4 w-4 text-green-400" />Matched to <strong>{message.application.title}</strong> at {message.application.company}
+                  <Briefcase className="h-4 w-4 text-green-400" />{message.reviewedAt ? "Linked application:" : "Suggested application:"} <strong>{message.application.title}</strong> at {message.application.company}
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center gap-2 rounded-md border border-orange-500/30 bg-orange-500/5 p-3">

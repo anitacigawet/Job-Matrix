@@ -2,6 +2,7 @@ import type { TRPCLink } from "@trpc/client";
 import { observable } from "@trpc/server/observable";
 import type { AppRouter } from "../../../server/routers";
 import { showroomPostingUrl } from "./showroomPostings";
+import { serializeCsv } from "@shared/csv";
 
 type Dict = Record<string, any>;
 
@@ -439,6 +440,7 @@ async function execute(path: string, input: Dict | undefined): Promise<any> {
     case "onboarding.uploadResumeAndParse": return { success: true, parsedProfile: { ...state.profile }, message: "Fictional résumé parsed inside the browser." };
 
     case "personalized.getEligibleJobs": return eligibleJobs().slice(0, input?.limit ?? undefined);
+    case "personalized.getBoardJobs": return state.jobs.filter((job: Dict) => !["applied", "rejected"].includes(job.status));
     case "personalized.getAppliedJobs": return state.applied.map((job: Dict) => ({ ...job }));
     case "personalized.getTotalJobCount": return state.jobs.length;
     case "personalized.getPendingJobCounts": return { unanalyzedJobs: state.jobs.filter((job: Dict) => !job.aiAnalysis).length, totalJobs: state.jobs.length };
@@ -448,7 +450,10 @@ async function execute(path: string, input: Dict | undefined): Promise<any> {
     case "personalized.getLastGlobalSearch": return { id: 601, userId: 1, platform: "multi", scanType: "broad_search", searchTerms: "Coordination, operations, civic data", location: "Phoenix, AZ + Remote", radiusMiles: 35, totalJobsFound: 12 + state.scanRevision * 3, newJobsFound: 4, status: "completed", errorMessage: null, currentPhase: "Complete", currentProgress: 12, totalProgress: 12, progressMessage: "Search complete: deterministic fictional listings loaded", lastProgressUpdate: updatedAt, completedSearches: [], operationPaused: false, operationCancelled: false, startedAt: new Date("2026-08-24T15:00:00.000Z"), completedAt: updatedAt };
     case "personalized.getLastAIAnalysis": return { id: 602, userId: 1, platform: "multi", scanType: "ai_analysis", searchTerms: "All new fictional listings", location: "Showroom fixture", radiusMiles: 0, totalJobsFound: state.jobs.length, newJobsFound: eligibleJobs().length, status: "completed", errorMessage: null, currentPhase: "Complete", currentProgress: state.jobs.length, totalProgress: state.jobs.length, progressMessage: `Analysis complete: ${eligibleJobs().length} eligible, ${Math.max(0, state.jobs.length - eligibleJobs().length)} ineligible`, lastProgressUpdate: updatedAt, completedSearches: [], operationPaused: false, operationCancelled: false, startedAt: updatedAt, completedAt: updatedAt };
     case "personalized.getDuplicateGroups": return { groups: [], lookup: {}, totalDuplicates: 0 };
-    case "personalized.exportEligibleJobsCSV": return ["Title,Company,Location,Status", ...eligibleJobs().map((job: Dict) => `\"${job.title}\",\"${job.company}\",\"${job.location}\",${job.status}`)].join("\n");
+    case "personalized.exportEligibleJobsCSV": return serializeCsv([
+      ["Title", "Company", "Location", "Salary Min", "Salary Max", "Job Type", "Date Posted", "URL", "Status"],
+      ...eligibleJobs().map((job: Dict) => [job.title, job.company, job.location, job.salaryMin, job.salaryMax, job.jobType, job.datePosted, job.jobUrl, job.status]),
+    ]);
     case "personalized.runGlobalSearch": state.scanRevision += 1; return { success: true, message: "Loaded 12 deterministic fictional listings from the showroom fixture.", totalJobsFound: 12, newJobsFound: 4, failedSearchCount: 0 };
     case "personalized.runAIAnalysis": for (const job of state.jobs) if (!job.aiAnalysis) job.aiAnalysis = { eligible: true, reason: "Eligible in the showroom scenario.", confidence: 90, redFlags: [] }; return { success: true, message: `Analyzed ${state.jobs.length} fictional listings without an external AI call.`, eligibleJobs: eligibleJobs().length, filteredOut: 0 };
     case "personalized.runFitScoring": for (const [index, job] of state.jobs.entries()) if (job.aiAnalysis) job.aiAnalysis = { ...job.aiAnalysis, fitScore: job.aiAnalysis.fitScore ?? 82 - index * 3, fitDetails: job.aiAnalysis.fitDetails ?? { skillsMatch: 84, educationMatch: 100, experienceMatch: 80, locationMatch: 92, notes: "Deterministic showroom score." }, scoredAt: "2026-08-29T18:00:00.000Z" }; return { success: true, message: `Scored ${eligibleJobs().length} eligible fictional jobs.` };

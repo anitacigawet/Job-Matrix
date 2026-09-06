@@ -18,8 +18,16 @@ Job Matrix makes outbound requests only for features you choose to use:
   working when a site changes.
 - Optional AI filtering sends the job listing and the relevant profile criteria
   to the AI provider you select.
+- Resume auto-fill sends the supplied resume text to the selected AI provider.
+  AI job-title suggestions send the desired job type to that provider.
+- Saving a profile with skills entered sends that skills text to the selected
+  AI provider to organize it, including when you fill in the profile manually.
 - Optional response monitoring contacts Gmail or Slack only after you configure
   that connection.
+- When local rules cannot classify a job-related email, response monitoring
+  sends its subject, sender, and up to 6,000 characters of its body to the
+  selected AI provider. Application status changes require your review and
+  manual action.
 
 Keys and connection tokens saved through Settings are written in plain text to
 `data/settings.json`; Job Matrix does not encrypt that local file. Keep the

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { serializeCsv } from "@shared/csv";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -155,7 +156,7 @@ function getJobAgeInfo(firstTrackedAt: string | Date) {
   return { color: "text-green-400", isExpired: false, daysOld };
 }
 
-function exportToCSV(jobs: any[]) {
+export function exportToCSV(jobs: any[]) {
   const headers = [
     "Title",
     "Company",
@@ -175,13 +176,10 @@ function exportToCSV(jobs: any[]) {
     job.jobType || "N/A",
     job.applicationStatus || "applied",
     new Date(job.appliedAt).toLocaleDateString(),
-    (job.notes || "").replace(/"/g, '""'),
+    job.notes || "",
     job.jobUrl,
   ]);
-  const csvContent = [
-    headers.join(","),
-    ...rows.map(row => row.map(cell => `"${cell}"`).join(",")),
-  ].join("\n");
+  const csvContent = serializeCsv([headers, ...rows]);
   const blob = new Blob([csvContent], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

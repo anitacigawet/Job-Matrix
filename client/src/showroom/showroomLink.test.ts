@@ -41,6 +41,12 @@ describe("Job Matrix showroom transport", () => {
     expect(initialJobs).toHaveLength(4);
     expect(initialJobs.every((job: any) => job.aiAnalysis?.eligible)).toBe(true);
 
+    const boardJobs = await run("personalized.getBoardJobs", "query");
+    expect(boardJobs.map((job: any) => job.id)).toEqual(initialJobs.map((job: any) => job.id));
+    expect(boardJobs.every((job: any) => !["applied", "rejected"].includes(job.status))).toBe(true);
+    const csv = await run("personalized.exportEligibleJobsCSV", "query");
+    expect(csv).toMatch(/^"Title","Company","Location","Salary Min","Salary Max","Job Type","Date Posted","URL","Status"\r\n/);
+
     await expect(run("personalized.runGlobalSearch", "mutation")).resolves.toMatchObject({ success: true });
     await expect(run("personalized.runAIAnalysis", "mutation")).resolves.toMatchObject({ success: true });
     await expect(run("personalized.runFitScoring", "mutation")).resolves.toMatchObject({ success: true });

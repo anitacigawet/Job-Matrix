@@ -20,6 +20,7 @@ export const personalizedRouter = router({
   // Job management
   markJobAsApplied: jobsRouter.markJobAsApplied,
   getEligibleJobs: jobsRouter.getEligibleJobs,
+  getBoardJobs: jobsRouter.getBoardJobs,
   getAppliedJobs: jobsRouter.getAppliedJobs,
   removeAppliedJob: jobsRouter.removeAppliedJob,
   updateApplicationStatus: jobsRouter.updateApplicationStatus,

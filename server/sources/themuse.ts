@@ -40,7 +40,7 @@ interface MuseSearchResponse {
 }
 
 function resolveApiKey(): string | null {
-  const key = ENV.themuseApiKey || "";
+  const key = ENV.themuseApiKey || readSettings().dataSources?.themuse?.apiKey || "";
   return key.length > 0 ? key : null;
 }
 

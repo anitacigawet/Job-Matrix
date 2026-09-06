@@ -7,6 +7,7 @@ import { eq, and, lte, isNotNull } from "drizzle-orm";
 import { getDb } from "./db";
 import { userSettings, type UserSettings } from "../drizzle/schema";
 import { notifyOwner } from "./_core/notification";
+import { assertOperationActive, withWorkspaceOperation } from "./operation-lifecycle";
 
 // Check interval: every 5 minutes
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
@@ -45,6 +46,14 @@ export function stopAutoScanScheduler() {
  * Check for due auto-scans and run them
  */
 async function checkAndRunDueScans() {
+  try {
+    await withWorkspaceOperation(runDueScans);
+  } catch (error) {
+    console.error("[AutoScan] Check stopped:", error);
+  }
+}
+
+async function runDueScans() {
   if (isRunning) {
     console.log("[AutoScan] Previous check still running, skipping");
     return;
@@ -97,6 +106,10 @@ async function checkAndRunDueScans() {
  * Run auto-scan for a specific user
  */
 export async function runAutoScanForUser(userId: number, settings: UserSettings) {
+  return withWorkspaceOperation(() => executeAutoScanForUser(userId, settings));
+}
+
+async function executeAutoScanForUser(userId: number, settings: UserSettings) {
   const db = await getDb();
 
   console.log(`[AutoScan] Running auto-scan for user ${userId}`);
@@ -118,6 +131,7 @@ export async function runAutoScanForUser(userId: number, settings: UserSettings)
     ]);
     const caller = appRouter.createCaller(await createInternalContext(userId));
     const scan = await caller.personalized.runGlobalSearch();
+    assertOperationActive();
     totalJobsFound = scan.totalJobsFound;
     totalNewJobs = scan.newJobsFound;
     if (!scan.success) errors.push(scan.message);
@@ -133,6 +147,7 @@ export async function runAutoScanForUser(userId: number, settings: UserSettings)
   }
 
   // Send notification if enabled
+  assertOperationActive();
   const [notifSettings] = await db
     .select()
     .from(userSettings)
@@ -152,11 +167,13 @@ export async function runAutoScanForUser(userId: number, settings: UserSettings)
     }
     content += `\nNext scan: ${nextRun.toLocaleString()}`;
 
+    assertOperationActive();
     await notifyOwner({ title, content });
   }
 
   // If new eligible jobs found, send a separate notification
   if (notifSettings?.notificationsEnabled && notifSettings?.notifyOnNewEligible && aiEligible > 0) {
+    assertOperationActive();
     await notifyOwner({
       title: `${aiEligible} New Eligible Jobs Found!`,
       content: `Your auto-scan found ${aiEligible} new jobs that match your profile criteria. Check your dashboard to review them.`,

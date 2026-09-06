@@ -158,6 +158,7 @@ export function JobPreferences() {
   // Dirty tracking
   const [profileDirty, setProfileDirty] = useState(false);
   const [profileSavedAt, setProfileSavedAt] = useState<number | null>(null);
+  const [presetProfilePending, setPresetProfilePending] = useState(false);
 
   // Initialize form from server data
   useEffect(() => {
@@ -176,6 +177,34 @@ export function JobPreferences() {
       setInitialized(true);
     }
   }, [profile, initialized]);
+
+  const handlePresetApplied = async () => {
+    setPresetProfilePending(true);
+    let refreshed: typeof profile;
+    try {
+      refreshed = await utils.onboarding.getProfile.fetch(undefined, { staleTime: 0 });
+      if (!refreshed) throw new Error("Missing profile");
+    } catch {
+      throw new Error("The preset was applied, but the profile could not be refreshed. Reload Preferences before saving.");
+    }
+    // Replace only the fields shown in the preset confirmation. Ordinary
+    // refetches leave edits alone, as do preset changes to unrelated fields.
+    setState(refreshed.state || "");
+    setCity(refreshed.city || "");
+    setSearchRadius(refreshed.searchRadiusMiles ?? 50);
+    setRemotePreference(refreshed.remotePreference || "");
+    setMinSalary(refreshed.minSalary != null ? String(refreshed.minSalary) : "");
+    setSalaryFilterEnabled(refreshed.salaryFilterEnabled || false);
+    setProfileSavedAt(null);
+    setProfileDirty(
+      willingToRelocate !== !!refreshed.willingToRelocate ||
+      educationLevel !== (refreshed.educationLevel || "") ||
+      yearsExperience !== (refreshed.yearsExperience || "") ||
+      skillsRaw !== (refreshed.skillsRaw || "") ||
+      resumeText !== (refreshed.resumeText || "")
+    );
+    setPresetProfilePending(false);
+  };
 
   // Mutations
   const saveProfileMutation = trpc.onboarding.saveProfile.useMutation({
@@ -773,7 +802,7 @@ export function JobPreferences() {
             <>
               <Button
                 onClick={handleSaveProfile}
-                disabled={saveProfileMutation.isPending}
+                disabled={saveProfileMutation.isPending || presetProfilePending}
                 data-agent-action="save-profile"
                 className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 h-12 text-lg"
                 size="lg"
@@ -796,6 +825,11 @@ export function JobPreferences() {
                   </>
                 )}
               </Button>
+              {presetProfilePending && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  Waiting for the applied preset to refresh. If it cannot refresh, reload Preferences before saving.
+                </p>
+              )}
               {profileSavedAt && (
                 <p
                   id="profile-saved-indicator"
@@ -1010,7 +1044,7 @@ export function JobPreferences() {
             </>
           )}
 
-          {activeTab === "presets" && <SearchPresetsContent />}
+          {activeTab === "presets" && <SearchPresetsContent onPresetApplied={handlePresetApplied} />}
 
         </div>
       </div>

@@ -112,11 +112,11 @@ const PROVIDER_META: Record<
 
 const PROVIDER_TAB_ORDER: ProviderId[] = ["gemini", "openai", "deepseek"];
 
-export function SettingsPage() {
+export function SettingsPage({ providerSetupOnly = false }: { providerSetupOnly?: boolean }) {
   const utils = trpc.useUtils();
   const { data: settings, isLoading } = trpc.settings.getSettings.useQuery();
   const { current: subNavTab } = useSubNav();
-  const activeTab = subNavTab ?? "llm";
+  const activeTab = providerSetupOnly ? "llm" : subNavTab ?? "llm";
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [notifyOnNewEligible, setNotifyOnNewEligible] = useState(true);
@@ -332,7 +332,7 @@ export function SettingsPage() {
       <div className="container max-w-3xl mx-auto py-8">
         <PageHeader
           title="Settings"
-          subtitle="Configure your AI provider, notifications, and automated scanning"
+          subtitle={providerSetupOnly ? "Configure your AI provider, then return to setup." : "Configure your AI provider, notifications, and automated scanning"}
           icon={<SettingsIcon className="h-8 w-8" />}
         />
 

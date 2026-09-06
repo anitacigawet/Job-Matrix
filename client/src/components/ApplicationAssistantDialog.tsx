@@ -26,6 +26,7 @@ export function ApplicationAssistantDialog({ jobId, open, onOpenChange }: {
       onOpenChange(false);
       await Promise.all([
         utils.personalized.getEligibleJobs.invalidate(),
+        utils.personalized.getBoardJobs.invalidate(),
         utils.personalized.getAppliedJobs.invalidate(),
       ]);
     },

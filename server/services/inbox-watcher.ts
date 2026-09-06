@@ -3,6 +3,7 @@ import { userSettings } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { getGmailConnectionSummary } from "./gmail-client";
 import { pollGmailInboxForUser } from "./application-inbox";
+import { withWorkspaceOperation } from "../operation-lifecycle";
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1_000;
 let interval: ReturnType<typeof setInterval> | null = null;
@@ -22,6 +23,14 @@ export function stopInboxWatcher(): void {
 }
 
 async function tick(): Promise<void> {
+  try {
+    await withWorkspaceOperation(checkInbox);
+  } catch (error) {
+    console.error("[Inbox] Watcher check stopped:", error);
+  }
+}
+
+async function checkInbox(): Promise<void> {
   if (checking || !getGmailConnectionSummary().connected) return;
   checking = true;
   try {

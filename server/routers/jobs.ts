@@ -9,8 +9,19 @@ import { getDb } from "../db";
 import { trackedJobs, appliedJobs } from "../../drizzle/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { detectDuplicates } from "../services/dedup-and-scoring";
+import { serializeCsv } from "../../shared/csv";
 
 export const jobsRouter = router({
+
+  // The board must retain pending and AI-filtered rows for review/empty states.
+  // Keep getEligibleJobs strict for consumers that specifically need matches.
+  getBoardJobs: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    const jobs = await db.select().from(trackedJobs)
+      .where(eq(trackedJobs.userId, ctx.user.id))
+      .orderBy(desc(trackedJobs.firstSeenAt));
+    return jobs.filter(job => job.status !== "applied" && job.status !== "rejected");
+  }),
 
   /**
    * Mark a job as applied
@@ -386,21 +397,19 @@ export const jobsRouter = router({
       return analysis.eligible === true;
     });
 
-    const csvRows = [
-      ["Title", "Company", "Location", "Salary Min", "Salary Max", "Job Type", "Date Posted", "URL", "Status"].join(","),
+    return serializeCsv([
+      ["Title", "Company", "Location", "Salary Min", "Salary Max", "Job Type", "Date Posted", "URL", "Status"],
       ...eligibleJobs.map((job) => [
-        `"${(job.title || "").replace(/"/g, '""')}"`,
-        `"${(job.company || "").replace(/"/g, '""')}"`,
-        `"${(job.location || "").replace(/"/g, '""')}"`,
-        job.salaryMin || "",
-        job.salaryMax || "",
-        `"${(job.jobType || "").replace(/"/g, '""')}"`,
-        job.datePosted || "",
+        job.title,
+        job.company,
+        job.location,
+        job.salaryMin,
+        job.salaryMax,
+        job.jobType,
+        job.datePosted,
         job.jobUrl,
         job.status,
-      ].join(",")),
-    ];
-
-    return csvRows.join("\n");
+      ]),
+    ]);
   }),
 });
